@@ -31,23 +31,26 @@ export class LocationsController {
         return this.locationsService.getStatsByOwner(req.user.userId);
     }
 
-    @Get('near')
+    @Get('nearby')
     findNearby(
         @Query('lat') lat: string,
         @Query('lng') lng: string,
-        @Query('radius') radius: string,
-        @Query('startDate') startDate: string,
-        @Query('endDate') endDate: string,
+        @Query('radius') radius?: string,
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
     ) {
+        // Si no hay fechas, usamos "hoy" y "mañana" por defecto para no romper el servicio
+        const start = startDate ? new Date(startDate) : new Date();
+        const end = endDate ? new Date(endDate) : new Date(new Date().getTime() + 24 * 60 * 60 * 1000);
+
         return this.locationsService.findNearby(
             Number(lat),
             Number(lng),
-            Number(radius || 5),
-            new Date(startDate),
-            new Date(endDate),
-        )
+            Number(radius || 5), // Radio por defecto: 5km
+            start,
+            end,
+        );
     }
-
 
     // 🔐 Crear location (con owner)
     @UseGuards(JwtAuthGuard)
