@@ -10,6 +10,12 @@ import { LocationOwner } from './entities/location-owner.entity'
 import { User } from 'src/users/entities/user.entity'
 import { Booking } from 'src/bookings/entities/booking.entity'
 
+interface NextPickup {
+    rawDate: Date;
+    time: string;
+    customerName: string;
+}
+
 @Injectable()
 export class LocationsService {
     constructor(
@@ -84,17 +90,44 @@ export class LocationsService {
         return relations.map((r) => r.location)
     }
 
+
     async findOne(id: string) {
         const location = await this.locationRepository.findOne({
             where: { id },
-            relations: ['owners', 'owners.user'],
-        })
+            relations: ['bookings'],
+        });
 
-        if (!location) {
-            throw new NotFoundException('Location not found')
-        }
+        if (!location) throw new NotFoundException('Location not found');
 
-        return location
+        // 1. Filtrar bookings activos
+        // Usamos toLowerCase() para evitar errores de tipeo si vienen de la DB distintos
+        const activeBookings = location.bookings.filter(
+            b => b.status.toLowerCase() === 'in_storage' || b.status.toLowerCase() === 'confirmed'
+        );
+
+        // 2. Sumar ocupación con tipado explícito
+        const occupied = activeBookings.reduce((acc, booking) => {
+            acc.small += Number(booking.items?.small || 0);
+            acc.medium += Number(booking.items?.medium || 0);
+            acc.large += Number(booking.items?.large || 0);
+            return acc;
+        }, { small: 0, medium: 0, large: 0 });
+
+        // 3. Calcular disponibilidad
+        const availability = {
+            small: Math.max(0, location.capacity.small - occupied.small),
+            medium: Math.max(0, location.capacity.medium - occupied.medium),
+            large: Math.max(0, location.capacity.large - occupied.large),
+        };
+
+        // 4. Retorno Limpio (IMPORTANTE: Quitamos 'bookings' del spread)
+        const { bookings, ...dataWithoutBookings } = location;
+
+        return {
+            ...dataWithoutBookings,
+            occupied,
+            availability,
+        };
     }
 
     private calculateDistance(
@@ -218,44 +251,116 @@ export class LocationsService {
         }
     }
 
-    async getStatsByOwner(ownerId: string) {
+    async getDashboardStatsByOwnerByStore(ownerId: string, locationId?: string) {
+        // 1. Buscamos todas las locaciones del dueño
+        // IMPORTANTE: He añadido 'location.bookings.user' en las relations para que b.user?.name funcione
         const locationOwners = await this.locationOwnerRepository.find({
             where: { user: { id: ownerId } },
-            relations: ['location', 'location.bookings'],
+            relations: ['location', 'location.bookings', 'location.bookings.user'],
         });
-    
-        let totalSlots = 0;
-        let activeItems = 0;
-        let totalRevenue = 0;
-    
-        locationOwners.forEach((lo) => {
-            const loc = lo.location;
-            totalSlots += (loc.capacity.small + loc.capacity.medium + loc.capacity.large);
-    
-            // Consideramos ocupado lo que está Confirmado y lo que ya está En Bodega
-            const occupiedBookings = loc.bookings.filter(b => 
-                ['confirmed', 'in_storage'].includes(b.status)
-            );
-    
-            occupiedBookings.forEach((booking) => {
-                activeItems += (booking.items.small + booking.items.medium + booking.items.large);
-            });
-    
-            // El ingreso solo sumamos lo Confirmado, En Bodega o ya Completado
-            const revenueBookings = loc.bookings.filter(b => 
-                ['confirmed', 'in_storage', 'completed'].includes(b.status)
-            );
-    
-            revenueBookings.forEach((booking) => {
-                totalRevenue += Number(booking.totalPrice);
-            });
+
+        if (locationOwners.length === 0) return null;
+
+        // 2. Selección de la tienda: La solicitada o la primera por defecto
+        let selectedLocOwner;
+        if (locationId) {
+            selectedLocOwner = locationOwners.find(lo => lo.location.id === locationId);
+        }
+
+        // Si no se pasó ID o no se encontró el ID solicitado, usamos el primero
+        const loc = selectedLocOwner ? selectedLocOwner.location : locationOwners[0].location;
+
+        // Inicializamos acumuladores
+        let todayRevenue = 0;
+        let yesterdayRevenue = 0;
+        let activeBookingsCount = 0;
+
+        const occupancy = {
+            small: { current: 0, total: loc.capacity.small || 0 },
+            medium: { current: 0, total: loc.capacity.medium || 0 },
+            large: { current: 0, total: loc.capacity.large || 0 }
+        };
+
+        // Tipamos explícitamente para evitar el error 'never'
+        let nextPickup: NextPickup | null = null;
+        let pickupsToday = 0;
+
+        const now = new Date();
+        // Helper para comparar fechas sin horas
+        const getZeroDate = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+        const todayTimestamp = getZeroDate(now);
+        const yesterdayTimestamp = getZeroDate(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+
+        // 3. Procesamos los bookings de la tienda seleccionada
+        loc.bookings.forEach((b) => {
+            const createdAtDate = new Date(b.createdAt);
+            const pickupDate = new Date(b.pickupDate);
+            const bookingDateTimestamp = getZeroDate(createdAtDate);
+            const pickupDateTimestamp = getZeroDate(pickupDate);
+
+            // --- Revenue (Hoy vs Ayer) ---
+            if (['confirmed', 'in_storage', 'completed'].includes(b.status)) {
+                if (bookingDateTimestamp === todayTimestamp) todayRevenue += Number(b.totalPrice || 0);
+                if (bookingDateTimestamp === yesterdayTimestamp) yesterdayRevenue += Number(b.totalPrice || 0);
+            }
+
+            // --- Ocupación Actual ---
+            if (['confirmed', 'in_storage'].includes(b.status)) {
+                activeBookingsCount++;
+                occupancy.small.current += b.items?.small || 0;
+                occupancy.medium.current += b.items?.medium || 0;
+                occupancy.large.current += b.items?.large || 0;
+            }
+
+            // --- Próximos Pickups de hoy ---
+            if (pickupDateTimestamp === todayTimestamp && b.status === 'in_storage') {
+                pickupsToday++;
+
+                if (pickupDate > now && (!nextPickup || pickupDate < nextPickup.rawDate)) {
+                    nextPickup = {
+                        rawDate: pickupDate,
+                        time: pickupDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
+                        customerName: b.user?.name || 'Guest'
+                    };
+                }
+            }
         });
-    
+
+        const calculatePct = (curr: number, tot: number) => tot > 0 ? Math.min(Math.round((curr / tot) * 100), 100) : 0;
+
+        // 4. Formateamos la respuesta para el nuevo diseño
         return {
-            activeItems,
-            totalSlots,
-            percentage: totalSlots > 0 ? Math.round((activeItems / totalSlots) * 100) : 0,
-            revenue: totalRevenue,
+            storeInfo: {
+                id: loc.id,
+                name: loc.name,
+                status: 'ACTIVE'
+            },
+            revenue: {
+                today: todayRevenue,
+                yesterday: yesterdayRevenue,
+                percentageIncrease: yesterdayRevenue > 0
+                    ? Math.round(((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100)
+                    : (todayRevenue > 0 ? 100 : 0)
+            },
+            bookings: {
+                activeCount: activeBookingsCount,
+                liveStatus: true
+            },
+            pickups: {
+                totalToday: pickupsToday,
+                nextPickup: nextPickup
+                    ? {
+                        time: (nextPickup as NextPickup).time,
+                        customerName: (nextPickup as NextPickup).customerName
+                    }
+                    : null
+            },
+            occupancy: [
+                { label: 'Small Bags', percentage: calculatePct(occupancy.small.current, occupancy.small.total), color: '#0A0E5E' },
+                { label: 'Medium Bags', percentage: calculatePct(occupancy.medium.current, occupancy.medium.total), color: '#6366F1' },
+                { label: 'Large Bags', percentage: calculatePct(occupancy.large.current, occupancy.large.total), color: '#FF6D00' }
+            ]
         };
     }
 
@@ -268,12 +373,19 @@ export class LocationsService {
     }
 
     async remove(id: string, userId: string) {
-        await this.validateOwnership(id, userId)
+        await this.validateOwnership(id, userId);
 
-        const location = await this.findOne(id)
+        // 1. Buscamos la entidad pura directamente del repositorio
+        // No usamos this.findOne(id) porque ese retorna el objeto con availability
+        const location = await this.locationRepository.findOne({ where: { id } });
 
-        await this.locationRepository.remove(location)
+        if (!location) {
+            throw new NotFoundException('Location not found');
+        }
 
-        return { message: 'Location deleted' }
+        // 2. Ahora sí podemos remover la entidad
+        await this.locationRepository.remove(location);
+
+        return { message: 'Location deleted' };
     }
 }

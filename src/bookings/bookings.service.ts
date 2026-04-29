@@ -2,15 +2,18 @@ import {
     Injectable,
     BadRequestException,
     NotFoundException,
+    ForbiddenException,
 } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { In, Repository } from 'typeorm'
+import { In, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm'
 import { Booking } from './entities/booking.entity'
 import { Location } from 'src/locations/entities/location.entity'
 import { CreateBookingDto } from './dto/create-booking.dto'
 import { UpdateBookingDto } from './dto/update-booking.dto'
 import { LocationOwner } from 'src/locations/entities/location-owner.entity'
 import { PreviewBookingDto } from './dto/preview-booking.dto'
+import { UserRole } from 'src/common/enums/user-role.enum'
+import { NotificationsService } from 'src/notifications/notifications.service'
 
 @Injectable()
 export class BookingsService {
@@ -22,108 +25,43 @@ export class BookingsService {
         private locationRepository: Repository<Location>,
 
         @InjectRepository(LocationOwner)
-        private locationOwnerRepository: Repository<LocationOwner>
+        private locationOwnerRepository: Repository<LocationOwner>,
+
+        private readonly notificationsService: NotificationsService,
     ) { }
 
     async create(dto: CreateBookingDto, userId: string) {
-        const { locationId, startDate, endDate } = dto
+        const { locationId, startDate, endDate } = dto;
+        const start = new Date(startDate);
+        const end = new Date(endDate);
 
-        // 🔹 1. Validar fechas
-        const start = new Date(startDate)
-        const end = new Date(endDate)
+        // 1. Validaciones iniciales
+        if (start >= end) throw new BadRequestException('Invalid date range');
 
-        if (start >= end) {
-            throw new BadRequestException('Invalid date range')
-        }
-
-        // 🔹 2. Buscar location
         const location = await this.locationRepository.findOne({
             where: { id: locationId },
-        })
+            relations: ['owners', 'owners.user'],
+        });
+        if (!location) throw new NotFoundException('Location not found');
 
-        if (!location) {
-            throw new NotFoundException('Location not found')
-        }
-
-        // 🔥 3. Normalizar items
         const items = {
             small: dto.items?.small ?? 0,
             medium: dto.items?.medium ?? 0,
             large: dto.items?.large ?? 0,
-        }
+        };
 
-        const totalItems = items.small + items.medium + items.large
+        // 2. Validar que el usuario no tenga ya una reserva activa
+        await this.ensureNoActiveBooking(userId, locationId);
 
-        if (totalItems === 0) {
-            throw new BadRequestException('At least one item is required')
-        }
+        // 3. Calcular Disponibilidad y Precio
+        const isAvailable = await this.checkAvailability(location, start, end, items);
+        const status: 'pending' | 'confirmed' = isAvailable ? 'confirmed' : 'pending';
 
-        // 🔥 4. Validar booking activo del usuario
-        const existingBooking = await this.bookingRepository.findOne({
-            where: {
-                user: { id: userId },
-                location: { id: locationId },
-                status: In(['pending', 'confirmed']),
-            },
-        })
+        const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+        const totalPrice = this.calculateTotalPrice(location, items, days);
 
-        if (existingBooking) {
-            throw new BadRequestException(
-                'You already have an active booking for this location',
-            )
-        }
-
-        // 🔥 5. Obtener bookings solapados (solo CONFIRMED)
-        const overlappingBookings = await this.bookingRepository
-            .createQueryBuilder('booking')
-            .where('booking.locationId = :locationId', { locationId })
-            .andWhere(
-                `(booking.startDate <= :endDate AND booking.endDate >= :startDate)`,
-                { startDate: start, endDate: end },
-            )
-            .andWhere('booking.status = :status', { status: 'confirmed' })
-            .getMany()
-
-        // 🔥 6. Calcular uso actual
-        const used = {
-            small: 0,
-            medium: 0,
-            large: 0,
-        }
-
-        overlappingBookings.forEach((b) => {
-            used.small += b.items?.small || 0
-            used.medium += b.items?.medium || 0
-            used.large += b.items?.large || 0
-        })
-
-        // 🔥 7. Validar capacidad
-        const exceeds =
-            used.small + items.small > location.capacity.small ||
-            used.medium + items.medium > location.capacity.medium ||
-            used.large + items.large > location.capacity.large
-
-        let status: 'pending' | 'confirmed' = 'confirmed'
-
-        if (exceeds) {
-            status = 'pending'
-        }
-
-        // 🔥 8. Calcular precio POR TIPO
-        const days =
-            (end.getTime() - start.getTime()) /
-            (1000 * 60 * 60 * 24)
-
-        const totalPrice =
-            days *
-            (
-                items.small * Number(location.pricePerDay.small) +
-                items.medium * Number(location.pricePerDay.medium) +
-                items.large * Number(location.pricePerDay.large)
-            )
-
-        // 🔹 9. Crear booking
-        const booking = this.bookingRepository.create({
+        // 4. Crear y Guardar
+        const newBooking = this.bookingRepository.create({
             startDate: start,
             endDate: end,
             totalPrice,
@@ -131,9 +69,14 @@ export class BookingsService {
             items,
             user: { id: userId },
             location: { id: locationId },
-        })
+        });
 
-        return this.bookingRepository.save(booking)
+        const savedBooking = await this.bookingRepository.save(newBooking);
+
+        // 5. Orquestar Notificaciones (Sin await si no quieres bloquear la respuesta)
+        this.handleBookingNotifications(userId, location, savedBooking);
+
+        return savedBooking;
     }
 
     async update(id: string, dto: UpdateBookingDto, userId: string) {
@@ -265,16 +208,33 @@ export class BookingsService {
         return this.bookingRepository.save(booking)
     }
 
-    async findMyBookings(userId: string) {
-        return this.bookingRepository.find({
-            where: {
-                user: { id: userId },
-            },
-            relations: ['location'],
-            order: {
-                startDate: 'DESC',
-            },
-        })
+    // BookingsService.ts
+    async findMyBookings(userId: string, roles: UserRole[], filters: any) {
+        const { status, locationId, limit } = filters;
+        const query = this.bookingRepository.createQueryBuilder('booking')
+            .leftJoinAndSelect('booking.location', 'location')
+            .leftJoinAndSelect('booking.user', 'customer')
+            .leftJoinAndSelect('customer.profile', 'profile');
+        // Si el usuario es OWNER, filtramos por propiedad de locación
+        if (roles.includes(UserRole.OWNER)) {
+            query.innerJoin('location.owners', 'lo')
+                .andWhere('lo.userId = :userId', { userId });
+
+            if (locationId) {
+                query.andWhere('booking.locationId = :locationId', { locationId });
+            }
+        }
+        // Si SOLO es USER o si quieres sumar sus bookings personales
+        else {
+            query.andWhere('booking.userId = :userId', { userId });
+        }
+
+        // Filtro de Status (evita el string 'all')
+        if (status && status !== 'all') {
+            query.andWhere('booking.status = :status', { status });
+        }
+
+        return await query.getMany();
     }
 
     async findByLocation(locationId: string, userId: string) {
@@ -404,4 +364,145 @@ export class BookingsService {
             },
         }
     }
+
+    async processQr(qrCode: string, ownerId: string) {
+        const booking = await this.getBookingForOwner(qrCode, ownerId);
+
+        // MÁQUINA DE ESTADOS
+        switch (booking.status) {
+            case 'confirmed':
+                booking.status = 'in_storage';
+                booking.checkedInAt = new Date();
+                break;
+
+            case 'in_storage':
+                booking.status = 'completed';
+                booking.checkedOutAt = new Date();
+                break;
+
+            default:
+                throw new BadRequestException(`La reserva no puede ser procesada (Estado: ${booking.status})`);
+        }
+
+        return this.bookingRepository.save(booking);
+    }
+
+    // bookings.service.ts
+
+    async getBookingForOwner(qrCode: string, userId: string) {
+        // 1. Buscamos la reserva usando el qrCode
+        const booking = await this.bookingRepository.findOne({
+            where: { qrCode },
+            relations: [
+                'user',
+                'user.profile',      // <--- AGREGA ESTO para traer el nombre
+                'location',
+                'location.owners',
+                'location.owners.user'
+            ],
+        });
+
+        // 2. Si no existe, error 404
+        if (!booking) {
+            throw new NotFoundException('Reserva no encontrada');
+        }
+
+        // 3. VALIDACIÓN DE SEGURIDAD: 
+        // Verificamos si el userId del que escanea está en la lista de owners de esa location
+        const isAuthorized = booking.location.owners.some(
+            (owner) => owner.user.id === userId
+        );
+
+        if (!isAuthorized) {
+            throw new ForbiddenException(
+                'No tienes permiso para gestionar reservas de este local'
+            );
+        }
+
+        // 4. Retornamos la reserva. 
+        // Aquí puedes limpiar el objeto para no enviar datos sensibles de los owners
+        const { location, ...bookingData } = booking;
+
+        return {
+            ...bookingData,
+            locationName: location.name,
+            // Agregamos un flag para que el front sepa qué tipo de acción toca
+            suggestedAction: booking.status === 'confirmed' ? 'check-in' : 'check-out'
+        };
+    }
+    private async checkAvailability(location: Location, start: Date, end: Date, requestedItems: any): Promise<boolean> {
+        const overlapping = await this.bookingRepository.find({
+            where: {
+                location: { id: location.id },
+                status: 'confirmed',
+                startDate: LessThanOrEqual(end),
+                endDate: MoreThanOrEqual(start),
+            },
+        });
+
+        const used = { small: 0, medium: 0, large: 0 };
+        overlapping.forEach((b) => {
+            used.small += b.items?.small || 0;
+            used.medium += b.items?.medium || 0;
+            used.large += b.items?.large || 0;
+        });
+
+        return (
+            used.small + requestedItems.small <= location.capacity.small &&
+            used.medium + requestedItems.medium <= location.capacity.medium &&
+            used.large + requestedItems.large <= location.capacity.large
+        );
+    }
+
+    private calculateTotalPrice(location: Location, items: any, days: number): number {
+        const d = days <= 0 ? 1 : days; // Asegurar al menos 1 día
+        return (
+            d *
+            (items.small * Number(location.pricePerDay.small) +
+                items.medium * Number(location.pricePerDay.medium) +
+                items.large * Number(location.pricePerDay.large))
+        );
+    }
+
+    private async ensureNoActiveBooking(userId: string, locationId: string) {
+        const existing = await this.bookingRepository.findOne({
+            where: {
+                user: { id: userId },
+                location: { id: locationId },
+                status: In(['pending', 'confirmed']),
+            },
+        });
+
+        if (existing) {
+            throw new BadRequestException('You already have an active booking here');
+        }
+    }
+
+    private async handleBookingNotifications(userId: string, location: Location, booking: Booking) {
+        try {
+            // 1. Notificación al Cliente (quien hace la reserva)
+            await this.notificationsService.notifyBookingCreated(userId, booking.id);
+    
+            // 2. Notificación a los Dueños (LocationOwner)
+            // Como 'owners' es un arreglo, notificamos a todos los asociados
+            if (location.owners && location.owners.length > 0) {
+                const notificationPromises = location.owners.map(owner => {
+                    // Verificamos que el objeto user esté cargado y tenga ID
+                    if (owner.user?.id) {
+                        return this.notificationsService.notifyNewBookingForOwner(
+                            owner.user.id,
+                            booking.id,
+                        );
+                    }
+                });
+    
+                // Usamos Promise.all para que se procesen todas en paralelo en la cola
+                await Promise.all(notificationPromises);
+            }
+        } catch (error) {
+            console.error('Error sending notifications:', error);
+            // Mantenemos el error silencioso para no romper el flujo del cliente
+        }
+    }
+
 }

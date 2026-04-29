@@ -6,7 +6,10 @@ export default () => ({
     password: process.env.DB_PASS,
     name: process.env.DB_NAME,
   },
-
+  redis: {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+  },
   jwt: {
     secret: process.env.JWT_SECRET!,
     expiresIn: (process.env.JWT_EXPIRES_IN as any) || '1d',

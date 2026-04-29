@@ -5,10 +5,12 @@ import { Booking } from './entities/booking.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Location } from 'src/locations/entities/location.entity';
 import { LocationOwner } from 'src/locations/entities/location-owner.entity';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([
-    Booking, Location, LocationOwner])],
+    Booking, Location, LocationOwner]),
+    NotificationsModule],
   providers: [BookingsService],
   controllers: [BookingsController]
 })

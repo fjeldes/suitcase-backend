@@ -1,7 +1,8 @@
-import { Entity, Column, ManyToOne } from 'typeorm'
+import { Entity, Column, ManyToOne, BeforeInsert } from 'typeorm'
 import { BaseEntity } from 'src/common/entities/base.entity'
 import { User } from 'src/users/entities/user.entity'
 import { Location } from 'src/locations/entities/location.entity'
+import { randomBytes } from 'crypto'
 
 @Entity()
 export class Booking extends BaseEntity {
@@ -42,6 +43,10 @@ export class Booking extends BaseEntity {
   // Agregamos el código QR (o un identificador único para el QR)
   @Column({ unique: true, nullable: true })
   qrCode: string
+  @BeforeInsert()
+  generateQrCode() {
+    this.qrCode = `STC-${randomBytes(6).toString('hex').toUpperCase()}`;
+  }
 
   @Column({ type: 'timestamp', nullable: true })
   checkedInAt: Date // Para saber exactamente cuándo llegó la maleta

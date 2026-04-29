@@ -19,10 +19,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     async validate(payload: any) {
+        const roles = [payload.roles].flat().filter(Boolean);
+
         return {
             userId: payload.sub,
             email: payload.email,
-            roles: payload.roles,
+            roles,
         }
     }
 }

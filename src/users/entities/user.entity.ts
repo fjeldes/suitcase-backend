@@ -4,6 +4,7 @@ import { LocationOwner } from 'src/locations/entities/location-owner.entity'
 import { UserRole } from './user-role.entity'
 import { Profile } from './profile.entity'
 import { Booking } from 'src/bookings/entities/booking.entity'
+import { DeviceToken } from 'src/notifications/entities/device-token.entity'
 
 @Entity({ name: 'users' })
 export class User extends BaseEntity {
@@ -28,4 +29,7 @@ export class User extends BaseEntity {
 
     @OneToMany(() => LocationOwner, (owner) => owner.user)
     locationOwners: LocationOwner[]
+
+    @OneToMany(() => DeviceToken, (deviceToken) => deviceToken.user)
+    deviceTokens: DeviceToken[];
 }
