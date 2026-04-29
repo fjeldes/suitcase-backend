@@ -7,6 +7,7 @@ import {
     Patch,
     Param,
     Get,
+    Query,
 } from '@nestjs/common'
 import { BookingsService } from './bookings.service'
 import { CreateBookingDto } from './dto/create-booking.dto'
@@ -15,16 +16,34 @@ import { UpdateBookingDto } from './dto/update-booking.dto'
 import { Roles } from 'src/auth/decorators/roles.decorator'
 import { RolesGuard } from 'src/auth/guards/roles.guards'
 import { PreviewBookingDto } from './dto/preview-booking.dto'
+import { UserRole } from 'src/common/enums/user-role.enum'
 
 @Controller('bookings')
 export class BookingsController {
     constructor(private readonly bookingsService: BookingsService) { }
 
-    // 🔥 MIS BOOKINGS (mejor práctica: "me")
     @UseGuards(JwtAuthGuard)
     @Get('me')
-    findMy(@Req() req: any) {
-        return this.bookingsService.findMyBookings(req.user.userId)
+    findMy(
+        @Req() req: any,
+        @Query('status') status?: string,
+        @Query('limit') limit?: string,
+        @Query('locationId') locationId?: string
+    ) {
+        // 1. Extraemos userId y role del token (req.user)
+        const { userId, roles } = req.user;
+        const rolesArray = [roles].flat();
+        // 2. Pasamos todo al servicio
+        // En BookingsController.ts
+        return this.bookingsService.findMyBookings(
+            userId,
+            rolesArray as UserRole[],
+            {
+                status,
+                locationId,
+                limit: limit ? parseInt(limit, 10) : undefined
+            }
+        );
     }
 
     // 🔥 BOOKINGS DE UNA LOCATION
@@ -76,5 +95,21 @@ export class BookingsController {
     @Post('preview')
     preview(@Body() dto: PreviewBookingDto, @Req() req: any) {
         return this.bookingsService.preview(dto, req.user.userId)
+    }
+
+    // Para que el scanner muestre la info en la pantalla de confirmación
+    @Get('validate-qr/:qrCode')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('owner')
+    async validate(@Param('qrCode') qrCode: string, @Req() req: any) {
+        return this.bookingsService.getBookingForOwner(qrCode, req.user.userId);
+    }
+
+    // Para cuando el owner presiona el botón "Confirmar"
+    @Patch('process-qr/:qrCode')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('owner')
+    async process(@Param('qrCode') qrCode: string, @Req() req: any) {
+        return this.bookingsService.processQr(qrCode, req.user.userId);
     }
 }

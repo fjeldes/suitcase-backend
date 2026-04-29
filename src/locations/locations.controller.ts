@@ -9,6 +9,7 @@ import {
     UseGuards,
     Req,
     Query,
+    Request,
 } from '@nestjs/common'
 import { LocationsService } from './locations.service'
 import { JwtAuthGuard } from 'src/auth/jwt/jwt.guard'
@@ -20,6 +21,7 @@ export class LocationsController {
     // 🔓 Público (explorar)
     @Get()
     findAll() {
+        console.log('GET /locations - findAll called');
         return this.locationsService.findAll()
     }
 
@@ -27,8 +29,9 @@ export class LocationsController {
     // Usamos el ID de prueba que tienes en los otros métodos mientras terminas de ajustar el Auth
     @UseGuards(JwtAuthGuard)
     @Get('owner/stats')
-    getOwnerStats(@Req() req: any) {
-        return this.locationsService.getStatsByOwner(req.user.userId);
+    async getDashboard(@Request() req, @Query('locationId') locationId?: string) {
+        // Cambia getStatsByOwner por getDashboardStats (o el nombre que tenga en tu service)
+        return this.locationsService.getDashboardStatsByOwnerByStore(req.user.userId, locationId);
     }
 
     @Get('nearby')
