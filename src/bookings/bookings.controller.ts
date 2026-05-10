@@ -1,22 +1,23 @@
 import {
-    Controller,
-    Post,
     Body,
-    UseGuards,
-    Req,
-    Patch,
-    Param,
+    Controller,
     Get,
+    Param,
+    Patch,
+    Post,
     Query,
+    Req,
+    UseGuards,
 } from '@nestjs/common'
-import { BookingsService } from './bookings.service'
-import { CreateBookingDto } from './dto/create-booking.dto'
-import { JwtAuthGuard } from 'src/auth/jwt/jwt.guard'
-import { UpdateBookingDto } from './dto/update-booking.dto'
 import { Roles } from 'src/auth/decorators/roles.decorator'
 import { RolesGuard } from 'src/auth/guards/roles.guards'
-import { PreviewBookingDto } from './dto/preview-booking.dto'
+import { JwtAuthGuard } from 'src/auth/jwt/jwt.guard'
 import { UserRole } from 'src/common/enums/user-role.enum'
+import { BookingsService } from './bookings.service'
+import { CreateBookingDto } from './dto/create-booking.dto'
+import { PreviewBookingDto } from './dto/preview-booking.dto'
+import { UpdateBookingDto } from './dto/update-booking.dto'
+import { IsBookingOwnerGuard } from './guards/is-booking-owner.guard'
 
 @Controller('bookings')
 export class BookingsController {
@@ -97,19 +98,29 @@ export class BookingsController {
         return this.bookingsService.preview(dto, req.user.userId)
     }
 
-    // Para que el scanner muestre la info en la pantalla de confirmación
     @Get('validate-qr/:qrCode')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles('owner')
+    @UseGuards(JwtAuthGuard)
     async validate(@Param('qrCode') qrCode: string, @Req() req: any) {
-        return this.bookingsService.getBookingForOwner(qrCode, req.user.userId);
+        const booking = await this.bookingsService.getBookingForOwner(qrCode, req.user.userId);
+        const { location, ...bookingData } = booking;
+        return {
+            ...bookingData,
+            locationName: location.name,
+            suggestedAction: booking.status === 'confirmed' ? 'check-in' : 'check-out'
+        };
     }
 
-    // Para cuando el owner presiona el botón "Confirmar"
     @Patch('process-qr/:qrCode')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles('owner')
+    @UseGuards(JwtAuthGuard)
     async process(@Param('qrCode') qrCode: string, @Req() req: any) {
         return this.bookingsService.processQr(qrCode, req.user.userId);
+    }
+
+    // src/bookings/bookings.controller.ts
+    @UseGuards(JwtAuthGuard, IsBookingOwnerGuard)
+    @Get(':id')
+    findOne(@Param('id') id: string, @Req() req: any) {
+        // Pasamos el booking que el Guard ya encontró (req.booking)
+        return this.bookingsService.findOne(req.booking, req.user.userId);
     }
 }

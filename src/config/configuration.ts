@@ -14,4 +14,20 @@ export default () => ({
     secret: process.env.JWT_SECRET!,
     expiresIn: (process.env.JWT_EXPIRES_IN as any) || '1d',
   },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+  },
+  resend: {
+    apiKey: process.env.RESEND_API_KEY,
+  },
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+  },
+  storage: {
+    projectId: process.env.GCS_PROJECT_ID,
+    bucketName: process.env.GCS_BUCKET_NAME,
+    clientEmail: process.env.GCS_CLIENT_EMAIL,
+    privateKey: process.env.GCS_PRIVATE_KEY,
+  },
 })

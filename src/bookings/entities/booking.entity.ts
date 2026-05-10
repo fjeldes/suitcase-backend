@@ -1,56 +1,76 @@
-import { Entity, Column, ManyToOne, BeforeInsert } from 'typeorm'
-import { BaseEntity } from 'src/common/entities/base.entity'
-import { User } from 'src/users/entities/user.entity'
-import { Location } from 'src/locations/entities/location.entity'
-import { randomBytes } from 'crypto'
+import { Entity, Column, ManyToOne, BeforeInsert, OneToMany } from 'typeorm';
+import { BaseEntity } from 'src/common/entities/base.entity';
+import { User } from 'src/users/entities/user.entity';
+import { Location } from 'src/locations/entities/location.entity';
+import { Review } from 'src/reviews/entities/review.entity';
+import { Transaction } from 'src/transactions/entities/transaction.entity';
+import { randomBytes } from 'crypto';
 
-@Entity()
+@Entity('bookings')
 export class Booking extends BaseEntity {
   @ManyToOne(() => User, (user) => user.bookings)
-  user: User
+  user: User;
 
   @ManyToOne(() => Location, (location) => location.bookings)
-  location: Location
+  location: Location;
 
   @Column()
-  startDate: Date
+  startDate: Date;
 
   @Column()
-  endDate: Date
+  endDate: Date;
 
   @Column('json')
   items: {
-    small: number
-    medium: number
-    large: number
-  }
+    small: number;
+    medium: number;
+    large: number;
+  };
 
   @Column({
     type: 'varchar',
-    default: 'pending',
+    default: 'pending_payment', // Cambiamos el default para el flujo de dinero
   })
-  status: 
-    | 'pending'    // El cliente reservó pero no ha pagado o el owner no ha aceptado.
-    | 'confirmed'  // Reserva pagada/aceptada. El espacio está bloqueado.
-    | 'in_storage' // El cliente llegó y entregó las maletas. (Check-in hecho).
-    | 'completed'  // El cliente ya retiró sus maletas. (Check-out hecho).
-    | 'cancelled'  // La reserva se canceló antes de empezar.
-    | 'no_show'     // El cliente nunca llegó y pasó la fecha.
+  status:
+    | 'pending_payment' // Nuevo: Esperando que Stripe/Usuario confirme el pago
+    | 'confirmed'       // Pagada y lista para recibir maletas
+    | 'in_storage'      // Maletas entregadas (Check-in)
+    | 'completed'       // Maletas retiradas (Check-out)
+    | 'cancelled'
+    | 'no_show';
 
-  @Column('decimal')
-  totalPrice: number
+  // Usamos un transformer o Number() porque PostgreSQL devuelve los decimales como strings
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  totalPrice: number;
 
-  // Agregamos el código QR (o un identificador único para el QR)
+  @Column({ type: 'int', default: 1 })
+  days: number; // 👈 Importante guardar cuántos días se cobraron
+
   @Column({ unique: true, nullable: true })
-  qrCode: string
+  qrCode: string;
+
   @BeforeInsert()
   generateQrCode() {
     this.qrCode = `STC-${randomBytes(6).toString('hex').toUpperCase()}`;
   }
 
   @Column({ type: 'timestamp', nullable: true })
-  checkedInAt: Date // Para saber exactamente cuándo llegó la maleta
+  checkedInAt: Date;
 
   @Column({ type: 'timestamp', nullable: true })
-  checkedOutAt: Date // Para saber cuándo se retiró
+  checkedOutAt: Date;
+
+  @OneToMany(() => Review, (review) => review.booking)
+  review: Review[];
+
+  @OneToMany(() => Transaction, (transaction) => transaction.booking)
+  transactions: Transaction[];
 }

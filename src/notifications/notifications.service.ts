@@ -1,21 +1,23 @@
 // backend/src/notifications/notifications.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
-import { InjectRepository } from '@nestjs/typeorm'; // O el que uses
+import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Queue } from 'bullmq';
 import { DeviceToken } from './entities/device-token.entity';
 import { RegisterTokenDto } from './dto/register-token.dto';
+// Importamos el Enum para evitar el error de "Type string is not assignable"
+import { Notification, NotificationCategory } from './entities/notification.entity';
 
 @Injectable()
 export class NotificationsService {
     constructor(
-        // 1. Inyectamos la cola (lo que ya tenías)
         @InjectQueue('push-notifications') private readonly notificationQueue: Queue,
 
-        // 2. Inyectamos el repositorio (lo que falta para el controlador)
         @InjectRepository(DeviceToken)
         private readonly deviceTokenRepository: Repository<DeviceToken>,
+        @InjectRepository(Notification)
+        private readonly notificationRepository: Repository<Notification>,
     ) { }
 
     /**
@@ -24,7 +26,6 @@ export class NotificationsService {
     async registerToken(userId: string, dto: RegisterTokenDto) {
         const { token, provider, deviceModel } = dto;
 
-        // 1. Ahora TypeScript reconocerá 'userId' porque existe en la entidad
         let deviceToken = await this.deviceTokenRepository.findOne({
             where: {
                 token: token,
@@ -33,24 +34,22 @@ export class NotificationsService {
         });
 
         if (deviceToken) {
-            // 2. Ahora reconocerá 'updatedAt'
             deviceToken.updatedAt = new Date();
             return this.deviceTokenRepository.save(deviceToken);
         }
 
-        // 3. Al crear, usamos userId directamente
         const newToken = this.deviceTokenRepository.create({
             token,
             provider,
             deviceModel,
-            userId, // Ahora sí es una propiedad conocida
+            userId,
         });
 
         return this.deviceTokenRepository.save(newToken);
     }
 
     /**
-     * LÓGICA PARA ENCOLAR (Lo que ya tenías)
+     * LÓGICA PARA ENCOLAR
      */
     async notifyBookingCreated(userId: string, bookingId: string) {
         await this.notificationQueue.add('send-push', {
@@ -61,10 +60,41 @@ export class NotificationsService {
     }
 
     async notifyNewBookingForOwner(ownerId: string, bookingId: string) {
+        // 1. Persistir en la base de datos
+        // Usamos .create() primero para que TypeScript valide el objeto antes del .save()
+        const notification = await this.notificationRepository.save(
+            this.notificationRepository.create({
+                // Si en la entidad es una relación ManyToOne, usa userId o user: { id: ownerId }
+                userId: ownerId,
+                title: '¡Nueva reserva recibida! 📦',
+                message: `Tienes una nueva solicitud de reserva (#${bookingId.substring(0, 8)}) pendiente.`,
+                // USAR EL ENUM AQUÍ ES CLAVE
+                category: NotificationCategory.BOOKINGS,
+                isRead: false,
+                metadata: {
+                    bookingId: bookingId,
+                    type: 'NEW_BOOKING'
+                }
+            })
+        );
+
+        // 2. Enviar a la cola de BullMQ para el Push Notification
         await this.notificationQueue.add('send-push', {
             userId: ownerId,
-            title: '¡Nueva reserva recibida! 📦',
-            body: `Tienes una nueva solicitud de reserva (#${bookingId.substring(0, 8)}) pendiente.`,
+            title: notification.title,
+            // Aquí usamos notification.message (asegúrate que en la entidad se llame message y no body)
+            body: notification.message,
+            data: {
+                bookingId: bookingId
+            }
         }, { attempts: 3, backoff: 5000 });
+    }
+
+    // Dentro de la clase NotificationsService
+    async findByUser(userId: string) {
+        return this.notificationRepository.find({
+            where: { userId },
+            order: { createdAt: 'DESC' }, // Para que las más nuevas salgan primero
+        });
     }
 }

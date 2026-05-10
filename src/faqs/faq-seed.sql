@@ -1,0 +1,9 @@
+INSERT INTO faqs (id, question, answer, category, "order", "isActive") VALUES
+  (gen_random_uuid()::text, 'How do I book a luggage storage?', 'Simply search for a nearby store on the map, select your drop-off and pick-up dates, choose your luggage items, and confirm your booking. Payment is processed securely through Stripe.', 'general', 1, true),
+  (gen_random_uuid()::text, 'What items are not allowed?', 'We do not accept hazardous materials, illegal items, perishable goods, weapons, or valuables exceeding $2,500. Please check with the store owner if you have specific concerns about your items.', 'general', 2, true),
+  (gen_random_uuid()::text, 'Can I extend my storage period?', 'Yes, you can extend your booking directly through the app if there is available capacity. Additional charges will apply based on the extra days.', 'bookings', 1, true),
+  (gen_random_uuid()::text, 'How do I cancel a booking?', 'You can cancel a booking from the booking details screen. Cancellations made before the check-in time are fully refunded. Late cancellations may incur a fee.', 'bookings', 2, true),
+  (gen_random_uuid()::text, 'What payment methods do you accept?', 'We accept all major credit and debit cards through Stripe. Your payment information is encrypted and processed securely.', 'payments', 1, true),
+  (gen_random_uuid()::text, 'When will I be charged?', 'Payment is processed at the time of booking confirmation. Your card will be charged the full amount for the selected storage period.', 'payments', 2, true),
+  (gen_random_uuid()::text, 'How do I update my profile information?', 'Go to Profile > Settings > Edit Profile to update your name and profile picture. For email changes, please contact support.', 'account', 1, true),
+  (gen_random_uuid()::text, 'How do I become a store owner?', 'Tap on "Become a Partner" in your profile to register as an owner. You will need to provide your store details and verify your identity.', 'account', 2, true);

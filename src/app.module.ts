@@ -10,6 +10,16 @@ import { AuthModule } from './auth/auth.module'
 import configuration from './config/configuration'
 import { envValidationSchema } from './config/env.validations'
 import { NotificationsModule } from './notifications/notifications.module';
+import { MailModule } from './mail/mail.module';
+import { ActivityLogsModule } from './activity-logs/activity-logs.module';
+import { StorageModule } from './storage/storage.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { PaymentsModule } from './payments/payments.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { TransactionsModule } from './transactions/transactions.module';
+import { FAQsModule } from './faqs/faqs.module';
+import { TermsModule } from './terms/terms.module';
+import { StaffModule } from './staff/staff.module';
 
 @Module({
   imports: [
@@ -19,6 +29,7 @@ import { NotificationsModule } from './notifications/notifications.module';
       validationSchema: envValidationSchema,
     }),
 
+    ScheduleModule.forRoot(),
     // CONFIGURACIÓN DE BULLMQ
     BullModule.forRootAsync({
       inject: [ConfigService],
@@ -51,7 +62,16 @@ import { NotificationsModule } from './notifications/notifications.module';
     LocationsModule,
     BookingsModule,
     AuthModule,
+    ReviewsModule,
+    PaymentsModule,
     NotificationsModule,
+    MailModule,
+    ActivityLogsModule,
+    StorageModule,
+    TransactionsModule,
+    FAQsModule,
+    TermsModule,
+    StaffModule
   ],
 })
 export class AppModule { }

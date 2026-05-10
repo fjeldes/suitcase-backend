@@ -11,12 +11,20 @@ import {
     Query,
     Request,
 } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { LocationsService } from './locations.service'
 import { JwtAuthGuard } from 'src/auth/jwt/jwt.guard'
+import { UpdateLocationDto } from './dto/update-location.dto';
+import { StaffAssignment } from 'src/staff/entities/staff-assignment.entity';
 
 @Controller('locations')
 export class LocationsController {
-    constructor(private readonly locationsService: LocationsService) { }
+    constructor(
+        private readonly locationsService: LocationsService,
+        @InjectRepository(StaffAssignment)
+        private readonly staffRepo: Repository<StaffAssignment>,
+    ) { }
 
     // 🔓 Público (explorar)
     @Get()
@@ -30,7 +38,14 @@ export class LocationsController {
     @UseGuards(JwtAuthGuard)
     @Get('owner/stats')
     async getDashboard(@Request() req, @Query('locationId') locationId?: string) {
-        // Cambia getStatsByOwner por getDashboardStats (o el nombre que tenga en tu service)
+        if (req.user.roles?.includes('staff')) {
+            if (!locationId) return null;
+            const assignment = await this.staffRepo.findOne({
+                where: { staff: { id: req.user.userId }, location: { id: locationId } },
+            });
+            if (!assignment) return null;
+            return this.locationsService.getDashboardStatsByStoreId(locationId);
+        }
         return this.locationsService.getDashboardStatsByOwnerByStore(req.user.userId, locationId);
     }
 
@@ -41,6 +56,11 @@ export class LocationsController {
         @Query('radius') radius?: string,
         @Query('startDate') startDate?: string,
         @Query('endDate') endDate?: string,
+        @Query('search') search?: string,
+        @Query('minLat') minLat?: string,
+        @Query('maxLat') maxLat?: string,
+        @Query('minLng') minLng?: string,
+        @Query('maxLng') maxLng?: string,
     ) {
         // Si no hay fechas, usamos "hoy" y "mañana" por defecto para no romper el servicio
         const start = startDate ? new Date(startDate) : new Date();
@@ -52,6 +72,13 @@ export class LocationsController {
             Number(radius || 5), // Radio por defecto: 5km
             start,
             end,
+            search,
+            {
+                minLat: minLat ? Number(minLat) : undefined,
+                maxLat: maxLat ? Number(maxLat) : undefined,
+                minLng: minLng ? Number(minLng) : undefined,
+                maxLng: maxLng ? Number(maxLng) : undefined,
+            }
         );
     }
 
@@ -70,14 +97,15 @@ export class LocationsController {
     }
 
     // 🔐 Actualizar (solo owner)
+    // En el Controller
     @UseGuards(JwtAuthGuard)
     @Patch(':id')
     update(
         @Param('id') id: string,
-        @Body() body: any,
+        @Body() updateLocationDto: UpdateLocationDto, // 👈 Usar DTO
         @Req() req: any,
     ) {
-        return this.locationsService.update(id, body, req.user.userId)
+        return this.locationsService.update(id, updateLocationDto, req.user.userId);
     }
 
     // 🔐 Eliminar (solo owner)

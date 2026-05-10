@@ -1,22 +1,30 @@
 import {
-    Injectable,
     BadRequestException,
-    NotFoundException,
     ForbiddenException,
+    Injectable,
+    NotFoundException,
 } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { In, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm'
-import { Booking } from './entities/booking.entity'
-import { Location } from 'src/locations/entities/location.entity'
-import { CreateBookingDto } from './dto/create-booking.dto'
-import { UpdateBookingDto } from './dto/update-booking.dto'
-import { LocationOwner } from 'src/locations/entities/location-owner.entity'
-import { PreviewBookingDto } from './dto/preview-booking.dto'
+import { ActivityLogsService } from 'src/activity-logs/activity-logs.service'
 import { UserRole } from 'src/common/enums/user-role.enum'
+import { LocationOwner } from 'src/locations/entities/location-owner.entity'
+import { Location } from 'src/locations/entities/location.entity'
 import { NotificationsService } from 'src/notifications/notifications.service'
+import { In, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm'
+import { CreateBookingDto } from './dto/create-booking.dto'
+import { PreviewBookingDto } from './dto/preview-booking.dto'
+import { UpdateBookingDto } from './dto/update-booking.dto'
+import { Booking } from './entities/booking.entity'
+import { User } from 'src/users/entities/user.entity'
+import { PaymentsService } from 'src/payments/payments.service'
+import Stripe from 'node_modules/stripe/esm/stripe.esm.node'
+import { BookingCalculator } from './logic/booking.calculator'
+import { PaymentMethod, Transaction, TransactionStatus } from 'src/transactions/entities/transaction.entity'
 
 @Injectable()
 export class BookingsService {
+    private readonly GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutos
+    private stripe: Stripe;
     constructor(
         @InjectRepository(Booking)
         private bookingRepository: Repository<Booking>,
@@ -24,18 +32,32 @@ export class BookingsService {
         @InjectRepository(Location)
         private locationRepository: Repository<Location>,
 
+        // --- AQUÍ LAS QUE TE FALTAN ---
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>,
+
         @InjectRepository(LocationOwner)
         private locationOwnerRepository: Repository<LocationOwner>,
 
+        @InjectRepository(Transaction)
+        private transactionRepository: Repository<Transaction>,
+
+
         private readonly notificationsService: NotificationsService,
-    ) { }
+        private readonly activityLogsService: ActivityLogsService,
+        private readonly paymentsService: PaymentsService,
+    ) {
+        this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
+            apiVersion: '2023-10-16' as any,
+        });
+    }
 
     async create(dto: CreateBookingDto, userId: string) {
         const { locationId, startDate, endDate } = dto;
         const start = new Date(startDate);
         const end = new Date(endDate);
 
-        // 1. Validaciones iniciales
+        // 1. Validaciones iniciales de fechas
         if (start >= end) throw new BadRequestException('Invalid date range');
 
         const location = await this.locationRepository.findOne({
@@ -43,6 +65,12 @@ export class BookingsService {
             relations: ['owners', 'owners.user'],
         });
         if (!location) throw new NotFoundException('Location not found');
+
+        // Determinamos la moneda del local (Default CLP)
+        const currency = (location.currency || 'clp').toLowerCase();
+
+        // Validar Horarios de la tienda
+        this.validateLocationSchedule(location, start, end);
 
         const items = {
             small: dto.items?.small ?? 0,
@@ -55,17 +83,70 @@ export class BookingsService {
 
         // 3. Calcular Disponibilidad y Precio
         const isAvailable = await this.checkAvailability(location, start, end, items);
-        const status: 'pending' | 'confirmed' = isAvailable ? 'confirmed' : 'pending';
+        if (!isAvailable) {
+            throw new BadRequestException('No space available for the selected items and dates.');
+        }
 
-        const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-        const totalPrice = this.calculateTotalPrice(location, items, days);
+        const days = BookingCalculator.calculateDays(start, end);
+        const rawTotalPrice = BookingCalculator.calculatePrice(location.pricePerDay, items, days);
 
-        // 4. Crear y Guardar
+        // Formateamos el precio según la moneda (ej: CLP sin decimales)
+        const totalPrice = BookingCalculator.formatByCurrency(rawTotalPrice, currency.toUpperCase());
+
+        // Generar el desglose financiero
+        const financials = BookingCalculator.calculateFinancials(totalPrice);
+
+        // --- 4. PROCESO DE PAGO ---
+        let providerTransactionId: string | undefined = undefined;
+
+        if (totalPrice > 0) {
+            const user = await this.userRepository.findOne({ where: { id: userId } });
+            if (!user) throw new NotFoundException('User not found.');
+            if (!user.stripeCustomerId) {
+                throw new BadRequestException('No payment account found. Please register a card first.');
+            }
+
+            try {
+                const paymentMethods = await this.stripe.paymentMethods.list({
+                    customer: user.stripeCustomerId,
+                    type: 'card',
+                });
+
+                if (paymentMethods.data.length === 0) {
+                    throw new BadRequestException('No saved cards found.');
+                }
+
+                // Stripe espera el monto en la unidad mínima (centavos para USD, unidad para CLP)
+                // Para CLP, Stripe no usa centavos, por eso multiplicamos según la moneda
+                const stripeAmount = currency === 'clp' ? totalPrice : Math.round(totalPrice * 100);
+
+                const paymentIntent = await this.stripe.paymentIntents.create({
+                    amount: stripeAmount,
+                    currency: currency,
+                    customer: user.stripeCustomerId,
+                    payment_method: paymentMethods.data[0].id,
+                    off_session: true,
+                    confirm: true,
+                });
+
+                if (paymentIntent.status !== 'succeeded') {
+                    throw new BadRequestException('Payment failed or requires action.');
+                }
+
+                providerTransactionId = paymentIntent.id;
+
+            } catch (error: any) {
+                throw new BadRequestException(`Payment failed: ${error.message}`);
+            }
+        }
+
+        // 5. Crear y Guardar la reserva
         const newBooking = this.bookingRepository.create({
             startDate: start,
             endDate: end,
             totalPrice,
-            status,
+            days,
+            status: 'confirmed',
             items,
             user: { id: userId },
             location: { id: locationId },
@@ -73,12 +154,41 @@ export class BookingsService {
 
         const savedBooking = await this.bookingRepository.save(newBooking);
 
-        // 5. Orquestar Notificaciones (Sin await si no quieres bloquear la respuesta)
+        // 6. Guardar Transacción con Moneda
+        await this.transactionRepository.save({
+            totalAmount: financials.totalAmount,
+            taxAmount: financials.taxAmount,
+            serviceFee: financials.serviceFee,
+            ownerNet: financials.ownerNet,
+            currency: currency.toUpperCase(),
+            status: TransactionStatus.SUCCEEDED,
+            paymentMethod: PaymentMethod.STRIPE,
+            providerTransactionId: providerTransactionId,
+            booking: savedBooking,
+        });
+
+        // 7. Notificaciones y Logs
         this.handleBookingNotifications(userId, location, savedBooking);
+
+        if (location.owners) {
+            const itemsSummary = `${items.small + items.medium + items.large}x Items`;
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            for (const owner of location.owners) {
+                if (owner.user?.id) {
+                    this.activityLogsService.logNewBooking(
+                        owner.user.id,
+                        locationId,
+                        itemsSummary,
+                        'Confirmed & Paid',
+                        timeStr
+                    );
+                }
+            }
+        }
 
         return savedBooking;
     }
-
     async update(id: string, dto: UpdateBookingDto, userId: string) {
         const booking = await this.bookingRepository.findOne({
             where: { id },
@@ -154,10 +264,10 @@ export class BookingsService {
             used.medium + items.medium > booking.location.capacity.medium ||
             used.large + items.large > booking.location.capacity.large
 
-        let status: 'pending' | 'confirmed' = 'confirmed'
+        let status: 'pending_payment' | 'confirmed' = 'confirmed'
 
         if (exceeds) {
-            status = 'pending'
+            status = 'pending_payment'
         }
 
         // 🔥 recalcular precio POR TIPO
@@ -186,7 +296,7 @@ export class BookingsService {
     async cancel(id: string, userId: string) {
         const booking = await this.bookingRepository.findOne({
             where: { id },
-            relations: ['user'],
+            relations: ['user', 'location', 'location.owners', 'location.owners.user'],
         })
 
         if (!booking) {
@@ -205,33 +315,60 @@ export class BookingsService {
         // 🔥 cancelar
         booking.status = 'cancelled'
 
-        return this.bookingRepository.save(booking)
+        const savedBooking = await this.bookingRepository.save(booking)
+
+        // Activity log para los owners
+        if (booking.location?.owners) {
+            for (const owner of booking.location.owners) {
+                if (owner.user?.id) {
+                    this.activityLogsService.logBookingCancelled(
+                        owner.user.id,
+                        booking.location.id,
+                        `#${booking.id.slice(0, 4)}`
+                    );
+                }
+            }
+        }
+
+        return savedBooking;
     }
 
     // BookingsService.ts
     async findMyBookings(userId: string, roles: UserRole[], filters: any) {
         const { status, locationId, limit } = filters;
+
         const query = this.bookingRepository.createQueryBuilder('booking')
             .leftJoinAndSelect('booking.location', 'location')
             .leftJoinAndSelect('booking.user', 'customer')
             .leftJoinAndSelect('customer.profile', 'profile');
-        // Si el usuario es OWNER, filtramos por propiedad de locación
+
         if (roles.includes(UserRole.OWNER)) {
             query.innerJoin('location.owners', 'lo')
                 .andWhere('lo.userId = :userId', { userId });
-
             if (locationId) {
-                query.andWhere('booking.locationId = :locationId', { locationId });
+                query.andWhere('location.id = :locationId', { locationId });
             }
-        }
-        // Si SOLO es USER o si quieres sumar sus bookings personales
-        else {
+        } else if (roles.includes('staff' as UserRole)) {
+            query.innerJoin('staff_assignments', 'sa', 'sa.locationId = location.id')
+                .andWhere('sa.staffId = :userId', { userId });
+            if (locationId) {
+                query.andWhere('location.id = :locationId', { locationId });
+            }
+        } else {
             query.andWhere('booking.userId = :userId', { userId });
         }
 
-        // Filtro de Status (evita el string 'all')
+        // --- FILTROS COMUNES ---
         if (status && status !== 'all') {
             query.andWhere('booking.status = :status', { status });
+        }
+
+        // Ordenar por fecha de creación (lo más nuevo primero)
+        query.orderBy('booking.createdAt', 'DESC');
+
+        // Límite opcional
+        if (limit) {
+            query.take(limit);
         }
 
         return await query.getMany();
@@ -368,16 +505,47 @@ export class BookingsService {
     async processQr(qrCode: string, ownerId: string) {
         const booking = await this.getBookingForOwner(qrCode, ownerId);
 
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
         // MÁQUINA DE ESTADOS
         switch (booking.status) {
             case 'confirmed':
                 booking.status = 'in_storage';
                 booking.checkedInAt = new Date();
+
+                // Generar log para todos los dueños
+                if (booking.location?.owners) {
+                    for (const owner of booking.location.owners) {
+                        if (owner.user?.id) {
+                            // Reutilizamos collection completed como generic event format (o podrías hacer logCheckIn)
+                            this.activityLogsService.logCollectionCompleted(
+                                owner.user.id,
+                                booking.location.id,
+                                `#${booking.id.slice(0, 4)} Check-in`,
+                                timeStr
+                            );
+                        }
+                    }
+                }
                 break;
 
             case 'in_storage':
                 booking.status = 'completed';
                 booking.checkedOutAt = new Date();
+
+                // Generar log
+                if (booking.location?.owners) {
+                    for (const owner of booking.location.owners) {
+                        if (owner.user?.id) {
+                            this.activityLogsService.logCollectionCompleted(
+                                owner.user.id,
+                                booking.location.id,
+                                `#${booking.id.slice(0, 4)}`,
+                                timeStr
+                            );
+                        }
+                    }
+                }
                 break;
 
             default:
@@ -390,45 +558,38 @@ export class BookingsService {
     // bookings.service.ts
 
     async getBookingForOwner(qrCode: string, userId: string) {
-        // 1. Buscamos la reserva usando el qrCode
         const booking = await this.bookingRepository.findOne({
             where: { qrCode },
             relations: [
                 'user',
-                'user.profile',      // <--- AGREGA ESTO para traer el nombre
+                'user.profile',
                 'location',
                 'location.owners',
                 'location.owners.user'
             ],
         });
 
-        // 2. Si no existe, error 404
         if (!booking) {
             throw new NotFoundException('Reserva no encontrada');
         }
 
-        // 3. VALIDACIÓN DE SEGURIDAD: 
-        // Verificamos si el userId del que escanea está en la lista de owners de esa location
-        const isAuthorized = booking.location.owners.some(
+        const isOwner = booking.location.owners.some(
             (owner) => owner.user.id === userId
         );
 
-        if (!isAuthorized) {
-            throw new ForbiddenException(
-                'No tienes permiso para gestionar reservas de este local'
-            );
-        }
+        if (isOwner) return booking;
 
-        // 4. Retornamos la reserva. 
-        // Aquí puedes limpiar el objeto para no enviar datos sensibles de los owners
-        const { location, ...bookingData } = booking;
+        const staffAssignment = await this.bookingRepository.manager
+            .createQueryBuilder()
+            .select()
+            .from('staff_assignments', 'sa')
+            .where('sa.staffId = :userId', { userId })
+            .andWhere('sa.locationId = :locationId', { locationId: booking.location.id })
+            .getRawOne();
 
-        return {
-            ...bookingData,
-            locationName: location.name,
-            // Agregamos un flag para que el front sepa qué tipo de acción toca
-            suggestedAction: booking.status === 'confirmed' ? 'check-in' : 'check-out'
-        };
+        if (staffAssignment) return booking;
+
+        throw new ForbiddenException('No tienes permiso para gestionar reservas de este local');
     }
     private async checkAvailability(location: Location, start: Date, end: Date, requestedItems: any): Promise<boolean> {
         const overlapping = await this.bookingRepository.find({
@@ -454,16 +615,6 @@ export class BookingsService {
         );
     }
 
-    private calculateTotalPrice(location: Location, items: any, days: number): number {
-        const d = days <= 0 ? 1 : days; // Asegurar al menos 1 día
-        return (
-            d *
-            (items.small * Number(location.pricePerDay.small) +
-                items.medium * Number(location.pricePerDay.medium) +
-                items.large * Number(location.pricePerDay.large))
-        );
-    }
-
     private async ensureNoActiveBooking(userId: string, locationId: string) {
         const existing = await this.bookingRepository.findOne({
             where: {
@@ -482,7 +633,7 @@ export class BookingsService {
         try {
             // 1. Notificación al Cliente (quien hace la reserva)
             await this.notificationsService.notifyBookingCreated(userId, booking.id);
-    
+
             // 2. Notificación a los Dueños (LocationOwner)
             // Como 'owners' es un arreglo, notificamos a todos los asociados
             if (location.owners && location.owners.length > 0) {
@@ -495,7 +646,7 @@ export class BookingsService {
                         );
                     }
                 });
-    
+
                 // Usamos Promise.all para que se procesen todas en paralelo en la cola
                 await Promise.all(notificationPromises);
             }
@@ -505,4 +656,93 @@ export class BookingsService {
         }
     }
 
+    private validateLocationSchedule(location: Location, start: Date, end: Date) {
+        if (!location.workingHours || !Array.isArray(location.workingHours)) return;
+
+        const checkTime = (date: Date, isStart: boolean) => {
+            const dayOfWeek = date.getDay(); // 0 = Domingo, 1 = Lunes...
+            const dayConfig = location.workingHours.find((h: any) => h.day === dayOfWeek);
+
+            if (!dayConfig) return;
+
+            if (dayConfig.isClosed) {
+                throw new BadRequestException(
+                    `The store is closed on ${dayConfig.label || 'this day'}.`
+                );
+            }
+
+            // Convertir "HH:mm" a minutos para comparar fácilmente
+            const timeToMinutes = (timeStr: string) => {
+                const [hrs, mins] = timeStr.split(':').map(Number);
+                return hrs * 60 + mins;
+            };
+
+            const currentMinutes = date.getHours() * 60 + date.getMinutes();
+            const openMinutes = timeToMinutes(dayConfig.open);
+            const closeMinutes = timeToMinutes(dayConfig.close);
+
+            if (currentMinutes < openMinutes || currentMinutes > closeMinutes) {
+                const type = isStart ? 'Drop-off' : 'Collection';
+                throw new BadRequestException(
+                    `${type} time (${date.getHours()}:${date.getMinutes()}) is outside store hours (${dayConfig.open} - ${dayConfig.close}).`
+                );
+            }
+        };
+
+        checkTime(start, true);
+        checkTime(end, false);
+    }
+
+    // En bookings.service.ts
+
+    async findOne(booking: Booking, userId: string) {
+        // Determinamos si quien consulta es el dueño de la tienda
+        const isOwner = booking.location.owners.some(o => o.user?.id === userId);
+
+        // Cálculo de total de items
+        const totalItemsCount =
+            (booking.items?.small || 0) +
+            (booking.items?.medium || 0) +
+            (booking.items?.large || 0);
+
+        const transaction = booking.transactions?.[0];
+
+        // Mapeo de respuesta profesional
+        return {
+            id: booking.id,
+            qrCode: booking.qrCode,
+            status: booking.status,
+            startDate: booking.startDate,
+            endDate: booking.endDate,
+            totalPrice: booking.totalPrice,
+            totalItems: totalItemsCount,
+            items: booking.items,
+            checkedInAt: booking.checkedInAt,
+            checkedOutAt: booking.checkedOutAt,
+            hasReview: booking.review?.length > 0,
+            // 👇 AGREGAMOS EL RECIBO/DESGLOSE
+            // Si el usuario es el cliente, ve todo el desglose. 
+            // Si es el owner, quizás solo le interesa su ownerNet.
+            receipt: transaction ? {
+                total: Number(transaction.totalAmount),
+                tax: Number(transaction.taxAmount),
+                fee: Number(transaction.serviceFee),
+                net: Number(transaction.ownerNet),
+            } : null,
+            location: {
+                id: booking.location.id,
+                name: booking.location.name,
+                address: booking.location.address,
+                image: booking.location.imageUrl,
+                latitude: booking.location.lat,
+                longitude: booking.location.lng,
+                pricePerDay: booking.location.pricePerDay,
+            },
+            // Si es el owner, le enviamos datos del cliente para el check-in
+            customer: isOwner ? {
+                name: `${booking.user.profile?.firstName || ''} ${booking.user.profile?.lastName || ''}`.trim(),
+                email: booking.user.email,
+            } : null
+        };
+    }
 }

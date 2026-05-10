@@ -1,5 +1,5 @@
 // backend/src/notifications/notifications.controller.ts
-import { Body, Controller, Post, UseGuards, Req } from "@nestjs/common";
+import { Body, Controller, Post, UseGuards, Req, Get, Query } from "@nestjs/common";
 import { NotificationsService } from "./notifications.service";
 import { RegisterTokenDto } from "./dto/register-token.dto"; import { JwtAuthGuard } from "src/auth/jwt/jwt.guard";
 
@@ -7,7 +7,7 @@ import { RegisterTokenDto } from "./dto/register-token.dto"; import { JwtAuthGua
 export class NotificationsController {
     constructor(private readonly notificationsService: NotificationsService) { }
 
-    @UseGuards(JwtAuthGuard) 
+    @UseGuards(JwtAuthGuard)
     @Post('register-token')
     async registerToken(
         @Body() registerTokenDto: RegisterTokenDto,
@@ -16,5 +16,10 @@ export class NotificationsController {
 
         const userId = req.user.userId;
         return this.notificationsService.registerToken(userId, registerTokenDto);
+    }
+
+    @Get()
+    findAll(@Query('userId') userId: string) {
+        return this.notificationsService.findByUser(userId);
     }
 }

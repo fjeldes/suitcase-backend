@@ -7,10 +7,13 @@ import { Profile } from './entities/profile.entity';
 import { Role } from './entities/role.entity';
 import { UserRole } from './entities/user-role.entity';
 
+import { StorageModule } from '../storage/storage.module';
+
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Profile,
-    Role,
-    UserRole])],
+  imports: [
+    TypeOrmModule.forFeature([User, Profile, Role, UserRole]),
+    StorageModule
+  ],
   providers: [UsersService],
   controllers: [UsersController],
   exports: [UsersService],

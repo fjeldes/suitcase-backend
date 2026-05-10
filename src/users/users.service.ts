@@ -1,4 +1,10 @@
-import { Injectable, ConflictException, OnModuleInit } from '@nestjs/common'; // Agregamos OnModuleInit
+import {
+    Injectable,
+    ConflictException,
+    OnModuleInit,
+    InternalServerErrorException,
+    NotFoundException
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -9,19 +15,26 @@ import { Role } from './entities/role.entity';
 import { Profile } from './entities/profile.entity';
 import { UserRole } from './entities/user-role.entity';
 import { CreateUserDto } from './dto/create-user.dto';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
     constructor(
-        @InjectRepository(User) private userRepository: Repository<User>,
-        @InjectRepository(Role) private roleRepository: Repository<Role>,
-        @InjectRepository(Profile) private profileRepository: Repository<Profile>,
-        @InjectRepository(UserRole) private userRoleRepository: Repository<UserRole>,
+        @InjectRepository(User)
+        private userRepository: Repository<User>,
+        @InjectRepository(Role)
+        private roleRepository: Repository<Role>,
+        @InjectRepository(Profile)
+        private profileRepository: Repository<Profile>,
+        private storageService: StorageService,
     ) { }
 
-    // 1. Semilla automática de Roles
+    /**
+     * 1. Semilla automática de Roles
+     * Se ejecuta al iniciar el módulo para asegurar que los roles existan.
+     */
     async onModuleInit() {
-        const roles = ['admin', 'owner', 'client'];
+        const roles = ['admin', 'owner', 'client', 'staff'];
         for (const roleName of roles) {
             const exists = await this.roleRepository.findOne({ where: { name: roleName } });
             if (!exists) {
@@ -32,51 +45,10 @@ export class UsersService implements OnModuleInit {
         }
     }
 
-    // 2. Creación de Usuario con Perfil y Rol
-    async create(createUserDto: CreateUserDto) {
-        // Hacemos el destructuring del DTO (asegúrate que el DTO tenga estos campos)
-        const { email, password, firstName, lastName } = createUserDto as any;
-
-        const existingUser = await this.userRepository.findOne({ where: { email } });
-        if (existingUser) {
-            throw new ConflictException('User already exists');
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Crear el Usuario base
-        const user = this.userRepository.create({
-            email,
-            password: hashedPassword,
-        });
-        const savedUser = await this.userRepository.save(user);
-
-        // Crear el Perfil vinculado automáticamente
-        const profile = this.profileRepository.create({
-            firstName,
-            lastName,
-            user: savedUser,
-        });
-        await this.profileRepository.save(profile);
-
-        // Asignar el Rol 'owner' por defecto (ahora sabemos que existe por el onModuleInit)
-        const role = await this.roleRepository.findOne({ where: { name: 'client' } });
-        if (role) {
-            const userRole = this.userRoleRepository.create({
-                user: savedUser,
-                role: role,
-            });
-            await this.userRoleRepository.save(userRole);
-        }
-
-        // Retornamos el usuario (puedes elegir no devolver el password por seguridad)
-        const { password: _, ...result } = savedUser;
-        return result;
-    }
-
-    // 3. Métodos de búsqueda
+    /**
+     * 3. Métodos de búsqueda
+     */
     findAll() {
-        // Agregamos relaciones para que el admin vea todo el detalle
         return this.userRepository.find({
             relations: ['profile', 'roles', 'roles.role']
         });
@@ -90,9 +62,53 @@ export class UsersService implements OnModuleInit {
     }
 
     async findOne(id: string) {
+        // Nota: Si usas UUIDs, asegúrate de que el id sea del tipo correcto
         return this.userRepository.findOne({
             where: { id: id as any },
             relations: ['profile', 'roles', 'roles.role'],
         });
+    }
+
+    async update(id: string, updateData: Partial<User>) {
+        await this.userRepository.update(id, updateData);
+        return this.findOne(id);
+    }
+
+    async updateProfile(userId: string, profileData: Partial<Profile>) {
+        const user = await this.userRepository.findOne({
+            where: { id: userId as any },
+            relations: ['profile']
+        });
+
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        if (user.profile) {
+            // Si ya tenía una foto anterior, la borramos de GCS para no llenar el bucket
+            if (user.profile.avatar && profileData.avatar) {
+                await this.storageService.deleteFile(user.profile.avatar);
+            }
+            await this.profileRepository.update(user.profile.id, profileData);
+        } else {
+            const newProfile = this.profileRepository.create({ ...profileData, user });
+            await this.profileRepository.save(newProfile);
+        }
+
+        const updatedUser = await this.findOne(userId);
+        
+        // Normalizamos para el frontend
+        if (updatedUser) {
+            // 1. Roles: de objetos a lista de strings
+            if (updatedUser.roles) {
+                (updatedUser as any).roles = updatedUser.roles.map(r => r.role.name);
+            }
+            // 2. Name: combinamos firstName y lastName del profile
+            if (updatedUser.profile) {
+                (updatedUser as any).name = `${updatedUser.profile.firstName || ''} ${updatedUser.profile.lastName || ''}`.trim();
+            }
+        }
+
+        return updatedUser;
     }
 }

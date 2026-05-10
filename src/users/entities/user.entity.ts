@@ -5,17 +5,30 @@ import { UserRole } from './user-role.entity'
 import { Profile } from './profile.entity'
 import { Booking } from 'src/bookings/entities/booking.entity'
 import { DeviceToken } from 'src/notifications/entities/device-token.entity'
+import { Review } from 'src/reviews/entities/review.entity'
 
 @Entity({ name: 'users' })
 export class User extends BaseEntity {
     @Column({ unique: true })
     email: string
 
-    @Column({ nullable: true })
-    password: string
+    @Column({
+        type: 'varchar',
+        nullable: true
+    })
+    password?: string | null;
 
     @Column({ default: true })
     isActive: boolean
+
+    @Column({ default: false })
+    isEmailVerified: boolean
+
+    @Column({ type: 'varchar', nullable: true })
+    otpCode?: string | null
+
+    @Column({ type: 'timestamp', nullable: true })
+    otpExpiresAt?: Date | null
 
     @OneToOne(() => Profile, (profile) => profile.user)
     profile: Profile
@@ -32,4 +45,10 @@ export class User extends BaseEntity {
 
     @OneToMany(() => DeviceToken, (deviceToken) => deviceToken.user)
     deviceTokens: DeviceToken[];
+
+    @OneToMany(() => Review, (review) => review.user)
+    reviews: Review[];
+
+    @Column({ type: 'varchar', nullable: true })
+    stripeCustomerId?: string | null;
 }

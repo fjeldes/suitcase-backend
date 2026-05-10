@@ -6,13 +6,15 @@ import { LocationOwner } from './entities/location-owner.entity';
 import { Location } from './entities/location.entity';
 import { Booking } from 'src/bookings/entities/booking.entity';
 import { User } from 'src/users/entities/user.entity';
+import { StaffAssignment } from 'src/staff/entities/staff-assignment.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([
     Location,
     LocationOwner,
     User,
-    Booking])],
+    Booking,
+    StaffAssignment])],
   providers: [LocationsService],
   controllers: [LocationsController]
 })

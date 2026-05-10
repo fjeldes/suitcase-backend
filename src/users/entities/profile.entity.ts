@@ -10,6 +10,9 @@ export class Profile extends BaseEntity {
   @Column({ nullable: true })
   lastName: string
 
+  @Column({ nullable: true })
+  avatar: string;
+
   @OneToOne(() => User, (user) => user.profile)
   @JoinColumn()
   user: User
