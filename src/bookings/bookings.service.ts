@@ -732,18 +732,18 @@ export class BookingsService {
     // En bookings.service.ts
 
     async findOne(booking: Booking, userId: string) {
-        // Determinamos si quien consulta es el dueño de la tienda
         const isOwner = booking.location.owners.some(o => o.user?.id === userId);
 
-        // Cálculo de total de items
         const totalItemsCount =
             (booking.items?.small || 0) +
             (booking.items?.medium || 0) +
             (booking.items?.large || 0);
 
-        const transaction = booking.transactions?.[0];
+        const mainTransaction = booking.transactions?.find(t => t.type === 'booking');
+        const extraTransactions = booking.transactions?.filter(t => t.type === 'extension') || [];
 
-        // Mapeo de respuesta profesional
+        const totalSurcharge = extraTransactions.reduce((sum, t) => sum + Number(t.totalAmount), 0);
+
         return {
             id: booking.id,
             qrCode: booking.qrCode,
@@ -756,15 +756,19 @@ export class BookingsService {
             checkedInAt: booking.checkedInAt,
             checkedOutAt: booking.checkedOutAt,
             hasReview: booking.review?.length > 0,
-            // 👇 AGREGAMOS EL RECIBO/DESGLOSE
-            // Si el usuario es el cliente, ve todo el desglose. 
-            // Si es el owner, quizás solo le interesa su ownerNet.
-            receipt: transaction ? {
-                total: Number(transaction.totalAmount),
-                tax: Number(transaction.taxAmount),
-                fee: Number(transaction.serviceFee),
-                net: Number(transaction.ownerNet),
+            receipt: mainTransaction ? {
+                total: Number(mainTransaction.totalAmount),
+                tax: Number(mainTransaction.taxAmount),
+                fee: Number(mainTransaction.serviceFee),
+                net: Number(mainTransaction.ownerNet),
             } : null,
+            surcharges: extraTransactions.map(t => ({
+                total: Number(t.totalAmount),
+                tax: Number(t.taxAmount),
+                description: t.description || 'Extra charge',
+                createdAt: t.createdAt,
+            })),
+            totalSurcharge,
             location: {
                 id: booking.location.id,
                 name: booking.location.name,
@@ -774,7 +778,6 @@ export class BookingsService {
                 longitude: booking.location.lng,
                 pricePerDay: booking.location.pricePerDay,
             },
-            // Si es el owner, le enviamos datos del cliente para el check-in
             customer: isOwner ? {
                 name: `${booking.user.profile?.firstName || ''} ${booking.user.profile?.lastName || ''}`.trim(),
                 email: booking.user.email,
