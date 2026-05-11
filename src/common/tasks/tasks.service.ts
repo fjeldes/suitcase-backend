@@ -7,7 +7,8 @@ import { ActivityLog } from 'src/activity-logs/entities/activity-log.entity';
 import { Booking } from 'src/bookings/entities/booking.entity';
 import { Transaction } from 'src/transactions/entities/transaction.entity';
 import { MailService } from 'src/mail/mail.service';
-import { subMonths, subHours } from 'date-fns';
+import { PayoutsService } from 'src/payouts/payouts.service';
+import { subMonths, subHours, getMonth, getYear } from 'date-fns';
 
 @Injectable()
 export class TasksService {
@@ -23,6 +24,7 @@ export class TasksService {
         @InjectRepository(Transaction)
         private readonly transactionRepo: Repository<Transaction>,
         private readonly mailService: MailService,
+        private readonly payoutsService: PayoutsService,
     ) { }
 
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -67,5 +69,16 @@ export class TasksService {
                 this.logger.error(`Error enviando recibo para booking ${booking.id}:`, err);
             }
         }
+    }
+
+    @Cron('0 0 1 * *') // 1st day of every month at midnight
+    async generateMonthlyOwnerPayouts() {
+        this.logger.log('Generando pagos mensuales para owners...');
+        const now = new Date();
+        const prevMonth = subMonths(now, 1);
+        const payouts = await this.payoutsService.generateMonthlyPayouts(
+            getYear(prevMonth), getMonth(prevMonth) + 1,
+        );
+        this.logger.log(`${payouts.length} pagos generados para el mes anterior.`);
     }
 }

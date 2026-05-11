@@ -19,6 +19,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TransactionsModule } from './transactions/transactions.module';
 import { FAQsModule } from './faqs/faqs.module';
+import { PayoutsModule } from './payouts/payouts.module';
 import { TermsModule } from './terms/terms.module';
 import { StaffModule } from './staff/staff.module';
 
@@ -71,6 +72,7 @@ import { StaffModule } from './staff/staff.module';
     StorageModule,
     TransactionsModule,
     FAQsModule,
+    PayoutsModule,
     CommonModule,
     TermsModule,
     StaffModule
