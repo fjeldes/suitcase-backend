@@ -16,6 +16,11 @@ export enum PaymentMethod {
     APP_CREDIT = 'app_credit',
 }
 
+export enum TransactionType {
+    BOOKING = 'booking',
+    EXTENSION = 'extension',
+}
+
 @Entity('transactions')
 export class Transaction {
     @PrimaryGeneratedColumn('uuid')
@@ -24,20 +29,23 @@ export class Transaction {
     @ManyToOne(() => Booking, (booking) => booking.transactions)
     booking: Booking;
 
-    @Column('decimal', { precision: 10, scale: 2 })
-    totalAmount: number;      // El total ($10.000)
+    @Column({ type: 'enum', enum: TransactionType, default: TransactionType.BOOKING })
+    type: TransactionType;
 
     @Column('decimal', { precision: 10, scale: 2 })
-    taxAmount: number;   // El IVA ($1.597)
+    totalAmount: number;
 
-    @Column('decimal', { precision: 10, scale: 2 })
-    serviceFee: number;  // Tu parte ($1.260)
+    @Column('decimal', { precision: 10, scale: 2, default: 0 })
+    taxAmount: number;
 
-    @Column('decimal', { precision: 10, scale: 2 })
-    ownerNet: number;    // Lo del local ($7.143)
+    @Column('decimal', { precision: 10, scale: 2, default: 0 })
+    serviceFee: number;
+
+    @Column('decimal', { precision: 10, scale: 2, default: 0 })
+    ownerNet: number;
 
     @Column({ type: 'varchar', length: 3, default: 'CLP' })
-    currency: string; // "CLP", "USD", "MXN", etc.
+    currency: string;
 
     @Column({ type: 'enum', enum: PaymentMethod })
     paymentMethod: PaymentMethod;
@@ -46,10 +54,13 @@ export class Transaction {
     status: TransactionStatus;
 
     @Column({ nullable: true })
-    providerTransactionId: string; // ID de Stripe o el procesador de pagos
+    providerTransactionId: string;
 
     @Column({ nullable: true })
     receiptUrl: string;
+
+    @Column({ nullable: true })
+    description: string;
 
     @CreateDateColumn()
     createdAt: Date;

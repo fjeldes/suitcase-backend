@@ -502,57 +502,93 @@ export class BookingsService {
         }
     }
 
+    private async chargeExtension(booking: any, extraDays: number) {
+        const pricePerDay = booking.location?.pricePerDay;
+        if (!pricePerDay || extraDays <= 0) return null;
+        const items = booking.items || { small: 0, medium: 0, large: 0 };
+        const extraAmount = BookingCalculator.calculatePrice(pricePerDay, items, extraDays);
+        const financials = BookingCalculator.calculateFinancials(extraAmount);
+
+        const user = booking.user;
+        let customerId = user?.stripeCustomerId;
+        if (!customerId) return null;
+
+        const paymentMethods = await this.stripe.paymentMethods.list({ customer: customerId, type: 'card' });
+        const pm = paymentMethods.data?.[0];
+        if (!pm) return null;
+
+        const intent = await this.stripe.paymentIntents.create({
+            amount: Math.round(extraAmount * 100),
+            currency: 'usd',
+            customer: customerId,
+            payment_method: pm.id,
+            confirm: true,
+            off_session: true,
+        });
+
+        const tx = await this.transactionRepository.save({
+            type: 'extension' as any,
+            totalAmount: financials.totalAmount,
+            taxAmount: financials.taxAmount,
+            serviceFee: financials.serviceFee,
+            ownerNet: financials.ownerNet,
+            currency: 'CLP',
+            status: intent.status === 'succeeded' ? TransactionStatus.SUCCEEDED : TransactionStatus.PENDING,
+            paymentMethod: PaymentMethod.STRIPE,
+            providerTransactionId: intent.id,
+            booking: { id: booking.id },
+            description: `Extra charge for ${extraDays} additional day(s)`,
+        });
+
+        return { extraDays, extraAmount: financials.totalAmount, transaction: tx };
+    }
+
     async processQr(qrCode: string, ownerId: string) {
         const booking = await this.getBookingForOwner(qrCode, ownerId);
 
-        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        // MÁQUINA DE ESTADOS
         switch (booking.status) {
             case 'confirmed':
                 booking.status = 'in_storage';
-                booking.checkedInAt = new Date();
-
-                // Generar log para todos los dueños
+                booking.checkedInAt = now;
                 if (booking.location?.owners) {
                     for (const owner of booking.location.owners) {
-                        if (owner.user?.id) {
-                            // Reutilizamos collection completed como generic event format (o podrías hacer logCheckIn)
-                            this.activityLogsService.logCollectionCompleted(
-                                owner.user.id,
-                                booking.location.id,
-                                `#${booking.id.slice(0, 4)} Check-in`,
-                                timeStr
-                            );
-                        }
+                        if (owner.user?.id) this.activityLogsService.logCollectionCompleted(owner.user.id, booking.location.id, `#${booking.id.slice(0, 4)} Check-in`, timeStr);
                     }
                 }
                 break;
 
-            case 'in_storage':
+            case 'in_storage': {
+                const endDate = new Date(booking.endDate);
+                const diffMs = now.getTime() - endDate.getTime();
+                const GRACE_MS = 30 * 60 * 1000;
+                let surcharge: any = null;
+
+                if (diffMs > GRACE_MS) {
+                    const extraDays = Math.max(1, Math.ceil((diffMs - GRACE_MS) / (24 * 60 * 60 * 1000)));
+                    surcharge = await this.chargeExtension(booking, extraDays);
+                    booking.endDate = new Date(endDate.getTime() + extraDays * 24 * 60 * 60 * 1000);
+                }
+
                 booking.status = 'completed';
-                booking.checkedOutAt = new Date();
+                booking.checkedOutAt = now;
 
-                // Generar log
                 if (booking.location?.owners) {
                     for (const owner of booking.location.owners) {
-                        if (owner.user?.id) {
-                            this.activityLogsService.logCollectionCompleted(
-                                owner.user.id,
-                                booking.location.id,
-                                `#${booking.id.slice(0, 4)}`,
-                                timeStr
-                            );
-                        }
+                        if (owner.user?.id) this.activityLogsService.logCollectionCompleted(owner.user.id, booking.location.id, `#${booking.id.slice(0, 4)}${surcharge ? ' +ext' : ''}`, timeStr);
                     }
                 }
                 break;
+            }
 
             default:
                 throw new BadRequestException(`La reserva no puede ser procesada (Estado: ${booking.status})`);
         }
 
-        return this.bookingRepository.save(booking);
+        const saved = await this.bookingRepository.save(booking);
+        return saved;
     }
 
     // bookings.service.ts
