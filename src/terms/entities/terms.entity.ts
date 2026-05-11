@@ -3,6 +3,7 @@ import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 export enum TermsType {
   CLIENT = 'client',
   OWNER = 'owner',
+  STAFF = 'staff',
 }
 
 @Entity('terms')

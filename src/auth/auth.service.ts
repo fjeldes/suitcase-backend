@@ -6,6 +6,8 @@ import { OAuth2Client } from 'google-auth-library';
 import { DataSource } from 'typeorm';
 
 import { MailService } from 'src/mail/mail.service';
+import { TermsService } from 'src/terms/terms.service';
+import { TermsType } from 'src/terms/entities/terms.entity';
 import { Profile } from 'src/users/entities/profile.entity';
 import { Role } from 'src/users/entities/role.entity';
 import { UserRole } from 'src/users/entities/user-role.entity';
@@ -23,6 +25,7 @@ export class AuthService {
         private dataSource: DataSource,
         private readonly configService: ConfigService,
         private mailService: MailService,
+        private readonly termsService: TermsService,
     ) {
         const googleId = this.configService.get<string>('google.clientId');
         this.googleClient = new OAuth2Client(googleId);
@@ -268,7 +271,10 @@ export class AuthService {
 
             await queryRunner.commitTransaction();
 
-            // Retornamos la estructura armada para generateTokens
+            try {
+                await this.termsService.autoAcceptLatest(savedUser.id, TermsType.CLIENT);
+            } catch { /* terms acceptance is non-critical */ }
+
             return {
                 ...savedUser,
                 profile,
