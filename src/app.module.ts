@@ -13,6 +13,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { MailModule } from './mail/mail.module';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 import { StorageModule } from './storage/storage.module';
+import { CommonModule } from './common/common.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -70,6 +71,7 @@ import { StaffModule } from './staff/staff.module';
     StorageModule,
     TransactionsModule,
     FAQsModule,
+    CommonModule,
     TermsModule,
     StaffModule
   ],

@@ -85,4 +85,34 @@ export class MailService {
       this.logger.error('Error sending staff invitation email', error);
     }
   }
+
+  async sendBookingReceipt(to: string, customerName: string, booking: any) {
+    this.logger.log(`Sending booking receipt to ${to}`);
+    try {
+      const itemSummary = `S:${booking.items?.small || 0} M:${booking.items?.medium || 0} L:${booking.items?.large || 0}`;
+      const total = typeof booking.totalPrice === 'number' ? booking.totalPrice.toFixed(0) : booking.totalPrice;
+      await this.resend.emails.send({
+        from: this.fromEmail,
+        to,
+        subject: `Booking Complete — ${booking.location?.name || 'Store'}`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; max-width: 500px; margin: 0 auto;">
+            <h2 style="color: #0A0E5E; text-align: center;">Booking Complete!</h2>
+            <p style="text-align: center;">Thank you for storing with SecureCustodian.</p>
+            <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 20px 0;" />
+            <table style="width: 100%; font-size: 14px;">
+              <tr><td style="padding: 4px 0; color: #64748B;">Store</td><td style="text-align: right; font-weight: 600;">${booking.location?.name || 'N/A'}</td></tr>
+              <tr><td style="padding: 4px 0; color: #64748B;">Booking ID</td><td style="text-align: right; font-weight: 600;">${booking.qrCode || booking.id?.slice(0, 8)}</td></tr>
+              <tr><td style="padding: 4px 0; color: #64748B;">Items</td><td style="text-align: right; font-weight: 600;">${itemSummary}</td></tr>
+              <tr><td style="padding: 4px 0; color: #64748B;">Total Paid</td><td style="text-align: right; font-weight: 700; font-size: 16px;">$${total}</td></tr>
+            </table>
+            <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 20px 0;" />
+            <p style="color: #64748B; font-size: 12px; text-align: center;">If you have any questions, contact our support team at support@suitcase.app</p>
+          </div>
+        `,
+      });
+    } catch (error) {
+      this.logger.error('Error sending receipt email', error);
+    }
+  }
 }
