@@ -39,11 +39,11 @@ export class LocationsController {
     @Get('owner/stats')
     async getDashboard(@Request() req, @Query('locationId') locationId?: string) {
         if (req.user.roles?.includes('staff')) {
-            if (!locationId) return null;
+            if (!locationId) return {};
             const assignment = await this.staffRepo.findOne({
                 where: { staff: { id: req.user.userId }, location: { id: locationId } },
             });
-            if (!assignment) return null;
+            if (!assignment) return {};
             return this.locationsService.getDashboardStatsByStoreId(locationId);
         }
         return this.locationsService.getDashboardStatsByOwnerByStore(req.user.userId, locationId);

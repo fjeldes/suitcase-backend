@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UnauthorizedException, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Patch, Body, UnauthorizedException, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
@@ -59,5 +59,11 @@ export class AuthController {
   @Post('reset-password')
   async resetPassword(@Body() body: { email: string; code: string; newPassword: string }) {
     return this.authService.resetPassword(body.email, body.code, body.newPassword);
+  }
+
+  @Patch('password')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(@Req() req: any, @Body() body: { currentPassword: string; newPassword: string }) {
+    return this.authService.changePassword(req.user.userId, body.currentPassword, body.newPassword);
   }
 }

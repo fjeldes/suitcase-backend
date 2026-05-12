@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, InternalServerErrorException, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -383,6 +383,19 @@ export class AuthService {
 
         this.mailService.sendPasswordResetEmail(email, otpCode).catch(e => console.error(e));
         return { message: 'If the email exists, a code was sent' };
+    }
+
+    async changePassword(userId: string, currentPassword: string, newPassword: string) {
+        const user = await this.usersService.findOne(userId);
+        if (!user) throw new UnauthorizedException('User not found');
+        if (!user.password) throw new BadRequestException('No password set — use Google login');
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) throw new BadRequestException('Current password is incorrect');
+
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await this.usersService.update(user.id, { password: hashed, mustChangePassword: false });
+        return { message: 'Password updated' };
     }
 
     async resetPassword(email: string, code: string, newPassword: string) {
