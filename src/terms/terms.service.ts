@@ -59,6 +59,38 @@ Your access can be revoked at any time by the store owner.
 
 4. Privacy
 Customer information must be kept confidential.`,
+
+  [TermsType.PRIVACY]: `PRIVACY POLICY
+
+1. Information We Collect
+We collect personal information you provide: name, email, phone number, and payment information. We also collect booking data and device information for app functionality.
+
+2. How We Use Your Information
+- To process bookings and payments
+- To send booking confirmations and receipts
+- To improve our services
+- To communicate with you about your account
+
+3. Data Sharing
+We do not sell your personal information. We share data only with:
+- Payment processors (Stripe) for transaction processing
+- Store owners to fulfill your booking
+- Service providers (hosting, email delivery)
+
+4. Data Security
+We implement industry-standard encryption (AES-256) and security protocols to protect your data. All communications are encrypted via TLS.
+
+5. Your Rights
+You may request access to, correction of, or deletion of your personal data at any time by contacting us.
+
+6. Data Retention
+We retain your data for as long as your account is active and up to 3 years after last activity, as required by applicable law.
+
+7. Contact
+For privacy inquiries: privacy@securecustodian.app
+
+8. Changes
+We will notify you of material changes via email or in-app notification.`,
 };
 
 @Injectable()
@@ -71,7 +103,7 @@ export class TermsService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    for (const type of [TermsType.CLIENT, TermsType.OWNER, TermsType.STAFF]) {
+    for (const type of [TermsType.CLIENT, TermsType.OWNER, TermsType.STAFF, TermsType.PRIVACY]) {
       const existing = await this.termsRepository.findOne({ where: { type, isActive: true } });
       if (!existing) {
         await this.termsRepository.save({

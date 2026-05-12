@@ -4,6 +4,7 @@ export enum TermsType {
   CLIENT = 'client',
   OWNER = 'owner',
   STAFF = 'staff',
+  PRIVACY = 'privacy',
 }
 
 @Entity('terms')

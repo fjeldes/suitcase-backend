@@ -9,7 +9,13 @@ export class TermsController {
 
   @Get('latest/:type')
   async getLatest(@Param('type') type: string) {
-    const termsType = type === 'owner' ? TermsType.OWNER : TermsType.CLIENT;
+    const typeMap: Record<string, TermsType> = {
+      client: TermsType.CLIENT,
+      owner: TermsType.OWNER,
+      staff: TermsType.STAFF,
+      privacy: TermsType.PRIVACY,
+    };
+    const termsType = typeMap[type] || TermsType.CLIENT;
     const terms = await this.termsService.findLatestByType(termsType);
     if (!terms) throw new Error('No terms found');
     return terms;
