@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { ConfigModule, ConfigService } from '@nestjs/config'
-import { BullModule } from '@nestjs/bullmq';
+import { BullModule } from '@nestjs/bullmq'
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
+import { APP_GUARD } from '@nestjs/core';
 
 import { UsersModule } from './users/users.module'
 import { LocationsModule } from './locations/locations.module'
@@ -22,9 +24,12 @@ import { FAQsModule } from './faqs/faqs.module';
 import { PayoutsModule } from './payouts/payouts.module';
 import { TermsModule } from './terms/terms.module';
 import { StaffModule } from './staff/staff.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
@@ -75,7 +80,14 @@ import { StaffModule } from './staff/staff.module';
     PayoutsModule,
     CommonModule,
     TermsModule,
-    StaffModule
+    StaffModule,
+    WebhooksModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule { }
