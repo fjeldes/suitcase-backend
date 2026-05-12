@@ -83,6 +83,7 @@ export class AuthService {
                 email: user.email,
                 name: user.profile?.firstName || 'Usuario',
                 roles: payload.roles,
+                mustChangePassword: user.mustChangePassword || false,
             },
         };
     }

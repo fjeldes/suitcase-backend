@@ -51,4 +51,7 @@ export class User extends BaseEntity {
 
     @Column({ type: 'varchar', nullable: true })
     stripeCustomerId?: string | null;
+
+    @Column({ default: false })
+    mustChangePassword: boolean;
 }
