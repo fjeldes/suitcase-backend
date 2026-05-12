@@ -14,6 +14,13 @@ export class ReviewsController {
     return this.reviewsService.create(dto, userId);
   }
 
+  @Get('eligible')
+  @UseGuards(JwtAuthGuard)
+  async getEligible(@GetUser('id') userId: string) {
+    const eligibleReviews = await this.reviewsService.findEligibleBookings(userId);
+    return { eligible: eligibleReviews.length > 0, bookings: eligibleReviews };
+  }
+
   @Get('location/:locationId')
   findByLocation(@Param('locationId') locationId: string) {
     return this.reviewsService.findByLocation(locationId);

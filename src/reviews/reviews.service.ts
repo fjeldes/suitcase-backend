@@ -56,6 +56,18 @@ export class ReviewsService {
     });
   }
 
+  async findEligibleBookings(userId: string) {
+    // Busca las ultimas 3 reservas completadas del usuario que NO tengan review
+    const bookings = await this.bookingRepository.find({
+      where: { user: { id: userId }, status: 'completed' },
+      relations: ['location', 'review'],
+      order: { updatedAt: 'DESC' },
+      take: 5,
+    });
+
+    return bookings.filter((b) => !b.review || b.review.length === 0).slice(0, 3);
+  }
+
   async getAverageRating(locationId: string) {
     const reviews = await this.reviewRepository.find({
       where: { location: { id: locationId } },
