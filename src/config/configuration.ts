@@ -19,6 +19,8 @@ export default () => ({
   },
   resend: {
     apiKey: process.env.RESEND_API_KEY,
+    fromName: process.env.RESEND_FROM_NAME,
+    fromEmail: process.env.RESEND_FROM_EMAIL,
   },
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY,
