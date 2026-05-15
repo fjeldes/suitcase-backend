@@ -30,10 +30,12 @@ export class MailService {
     return true;
   }
 
+  private baseUrl = process.env.NODE_ENV === 'production' ? 'https://api.dev.kipgo.app' : 'http://localhost:3000';
+
   private head(title: string) {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <style>body{font-family:Inter,sans-serif;background:#f9f9f9;margin:0;padding:0}.container{max-width:480px;margin:40px auto;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 20px 40px rgba(26,35,126,0.06)}.header{background:#f3f3f3;padding:32px;text-align:center}.logo{height:48px;width:auto}.content{padding:40px}.footer{background:#f3f3f3;padding:24px;text-align:center;border-top:1px solid rgba(198,197,212,0.15)}.footer-text{font-size:12px;color:#767683;margin:0 0 4px;line-height:18px}.footer-copy{font-size:12px;color:#767683;margin:0}h1{font-family:Manrope,sans-serif;font-weight:700;color:#1a237e}p{color:#454652;font-size:14px;line-height:22px;margin:0 0 16px}a{color:#1a237e}.btn{display:inline-flex;align-items:center;justify-content:center;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;min-width:200px}
-</style></head><body><div class="container"><div class="header"><img class="logo" src="https://api.dev.kipgo.app/logo.png" alt="KipGo"/></div>`;
+</style></head><body><div class="container"><div class="header"><img class="logo" src="${this.baseUrl}/assets/logo.png" alt="KipGo"/></div>`;
   }
 
   private foot() {
@@ -191,5 +193,52 @@ ${large > 0 ? `<div style="display:flex;justify-content:space-between;align-item
 ${this.foot()}`,
       });
     } catch (error) { this.logger.error('Error sending receipt email', error); }
+  }
+
+  async sendWelcomeEmail(to: string, name: string, lang: string = 'en') {
+    this.logger.log(`[${this.isConfigured ? 'EMAIL' : 'DEV'}] Welcome email for ${name} (${to})`);
+    if (!this.canSend()) return;
+    const t = (es: string, en: string) => lang === 'es' ? es : en;
+    try {
+      await this.resend.emails.send({
+        from: this.fromEmail, to,
+        subject: t('¡Bienvenido a KipGo!', 'Welcome to KipGo!'),
+        html: `${this.head('')}
+<div style="background:#f3f3f3;padding:48px 32px;text-align:center;position:relative;overflow:hidden">
+<div style="position:absolute;inset:0;background:radial-gradient(circle at top right, rgba(253,108,0,0.1), transparent);"></div>
+<div style="position:relative;z-index:1">
+<h1 style="font-size:36px;margin:0 0 16px;line-height:1.2">${t('¡Bienvenido a la', 'Welcome to the')}<br/><span style="background:linear-gradient(135deg,#000666,#1a237e);-webkit-background-clip:text;-webkit-text-fill-color:transparent">${t('familia KipGo!', 'KipGo family!')}</span></h1>
+<p style="font-size:16px;color:#454652;max-width:400px;margin:0 auto">${t('Viaja ligero, guarda en cualquier lugar. Tu conserje digital para almacenamiento de equipaje está listo.', 'Travel light, store anywhere. Your digital concierge for seamless luggage storage is ready.')}</p>
+</div>
+</div>
+<div class="content">
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:32px">
+<div style="background:#f3f3f3;padding:24px;border-radius:12px;text-align:center">
+<div style="width:48px;height:48px;border-radius:50%;background:#bdc2ff;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">📍</div>
+<h3 style="font-family:Manrope,sans-serif;font-weight:700;color:#1a237e;margin:0 0 4px;font-size:16px">1. ${t('Encuentra', 'Find')}</h3>
+<p style="font-size:13px;color:#454652;margin:0">${t('Descubre bóvedas KipGo cerca de ti.', 'Discover secure KipGo vaults near you.')}</p>
+</div>
+<div style="background:#f3f3f3;padding:24px;border-radius:12px;text-align:center">
+<div style="width:48px;height:48px;border-radius:50%;background:#ffb692;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">📖</div>
+<h3 style="font-family:Manrope,sans-serif;font-weight:700;color:#1a237e;margin:0 0 4px;font-size:16px">2. ${t('Reserva', 'Book')}</h3>
+<p style="font-size:13px;color:#454652;margin:0">${t('Reserva tu espacio de forma segura.', 'Reserve your space securely.')}</p>
+</div>
+<div style="background:#f3f3f3;padding:24px;border-radius:12px;text-align:center">
+<div style="width:48px;height:48px;border-radius:50%;background:#b0c6ff;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">🔒</div>
+<h3 style="font-family:Manrope,sans-serif;font-weight:700;color:#1a237e;margin:0 0 4px;font-size:16px">3. ${t('Guarda', 'Store')}</h3>
+<p style="font-size:13px;color:#454652;margin:0">${t('Deja tus maletas y disfruta tu día.', 'Drop off your bags and enjoy your day.')}</p>
+</div>
+</div>
+<div style="text-align:center;background:#f3f3f3;padding:32px;border-radius:12px;position:relative;overflow:hidden">
+<div style="position:absolute;inset:0;background:radial-gradient(circle at bottom left, rgba(189,194,255,0.2), transparent)"></div>
+<div style="position:relative;z-index:1">
+<h2 style="font-family:Manrope,sans-serif;font-size:22px;font-weight:700;color:#1a237e;margin:0 0 16px">${t('¿Listo para explorar sin equipaje?', 'Ready to explore unburdened?')}</h2>
+<a href="${this.baseUrl}" class="btn" style="background:linear-gradient(135deg,#000666,#1a237e);color:#fff;box-shadow:0 10px 20px rgba(26,35,126,0.15)">${t('Comenzar ahora', 'Get Started Now')} →</a>
+</div>
+</div>
+</div>
+${this.foot()}`,
+      });
+    } catch (error) { this.logger.error('Error sending welcome email', error); }
   }
 }

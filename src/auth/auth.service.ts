@@ -350,6 +350,8 @@ export class AuthService {
             otpExpiresAt: null,
         });
 
+        this.mailService.sendWelcomeEmail(email, user.profile?.firstName || 'User', 'es');
+
         // Retorna tokens para que el usuario pueda ingresar de una
         return this.generateTokens(await this.usersService.findOne(user.id));
     }
