@@ -146,6 +146,7 @@ module "cloud_run" {
   db_user               = "postgres"
   db_password           = var.supabase_db_password
   db_name               = "postgres"
+  storage_bucket_name   = module.storage.bucket_name
   image_url             = var.image_url
   service_account_email = var.service_account_email
   min_instances         = 0

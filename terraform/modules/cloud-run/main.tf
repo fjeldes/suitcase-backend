@@ -62,10 +62,7 @@ resource "google_cloud_run_service" "api" {
           value = var.env == "prod" ? "production" : "development"
         }
 
-        env {
-          name  = "PORT"
-          value = "3000"
-        }
+        # PORT lo auto-asigna Cloud Run, no lo seteamos manualmente
 
         # ─── Conexión a BD (valores planos, no son "secretos") ──────────
         env {
@@ -219,9 +216,8 @@ resource "google_cloud_run_service" "api" {
         # El tráfico a internet (ej: API de Stripe) sale directo, no por la VPC
         "run.googleapis.com/vpc-access-egress" = "private-ranges-only"
 
-        # all: permite tráfico desde internet (público)
-        # Alternativa: "internal" solo para tráfico interno de GCP
-        "run.googleapis.com/ingress" = "all"
+        # all: permite tráfico desde internet (público). Se define en metadata del servicio
+        # "run.googleapis.com/ingress" = "all"
 
         # gen2: segunda generación de Cloud Run (mejor performance, más features)
         "run.googleapis.com/execution-environment" = "gen2"
@@ -229,9 +225,17 @@ resource "google_cloud_run_service" "api" {
     }
   }
 
-  # Cada vez que cambia el template, Cloud Run crea automáticamente
-  # una nueva "revision" y migra el tráfico gradualmente (rolling update).
+  # each time the template changes, Cloud Run creates a new revision
   autogenerate_revision_name = true
+
+  # ingress setting at service level (not template)
+  metadata {
+    annotations = {
+      "run.googleapis.com/ingress" = "all"
+    }
+  }
+
+  # depends on the service being enabled
 }
 
 # ─── 2. PERMISO DE ACCESO PÚBLICO ─────────────────────────────────────────
