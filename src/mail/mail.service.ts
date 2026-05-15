@@ -78,7 +78,34 @@ export class MailService {
       return await this.resend.emails.send({
         from: this.fromEmail, to,
         subject: 'Reset your KipGo Password',
-        html: `<div style="font-family:sans-serif;padding:20px;text-align:center;"><h2>Password Reset</h2><p>Use this code to reset your password:</p><h1 style="color:#E53E3E;letter-spacing:5px;">${code}</h1><p>Expires in 15 minutes.</p></div>`,
+        html: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<style>body{font-family:Inter,sans-serif;background:#f9f9f9;margin:0;padding:0}.container{max-width:480px;margin:40px auto;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 20px 40px rgba(26,35,126,0.06)}.header{background:#f3f3f3;padding:32px;text-align:center}.logo{height:48px;width:auto}.content{padding:40px;text-align:center}.icon-box{width:64px;height:64px;background:#f3f3f3;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px}.icon{font-size:32px}h1{font-family:Manrope,sans-serif;font-size:28px;font-weight:700;color:#1a237e;margin:0 0 16px}.desc{color:#454652;font-size:14px;line-height:22px;margin:0 0 32px}.otp-code{font-family:Manrope,sans-serif;font-size:40px;font-weight:800;letter-spacing:8px;color:#1a237e;margin:0 0 8px;text-align:center}.otp-label{font-size:11px;color:#767683;text-transform:uppercase;letter-spacing:1px;margin-bottom:24px}.btn{display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#fd6c00,#9f4200);color:#ffffff;border-radius:12px;padding:16px 32px;text-decoration:none;font-weight:600;font-size:14px;width:100%;max-width:280px;box-shadow:0 10px 20px rgba(253,108,0,0.15)}.note-box{background:#f3f3f3;border-radius:12px;padding:20px;text-align:left;border:1px solid rgba(198,197,212,0.15);display:flex;gap:16px;margin-top:32px}.note-icon{color:#767683;flex-shrink:0}.note-text{font-size:12px;color:#454652;line-height:18px;margin:0}.footer{background:#f3f3f3;padding:24px;text-align:center;border-top:1px solid rgba(198,197,212,0.15)}.footer-text{font-size:12px;color:#767683;margin:0 0 4px}.footer-copy{font-size:12px;color:#767683;margin:0}</style></head>
+<body>
+<div class="container">
+<div class="header"><img class="logo" src="https://api.dev.kipgo.app/logo.png" alt="KipGo"/></div>
+<div class="content">
+<div class="icon-box"><div class="icon">🔑</div></div>
+<h1>Reset your KipGo Password</h1>
+<p class="desc">Use the code below to reset your password. This code will expire in 10 minutes.</p>
+<div style="background:#f3f3f3;border-radius:12px;padding:24px;margin-bottom:8px">
+<div class="otp-code">${code}</div>
+<div class="otp-label">Reset code</div>
+</div>
+<p style="font-size:12px;color:#767683;margin:0 0 32px">Enter this code in the app to set a new password.</p>
+<div class="note-box">
+<div class="note-icon">ℹ️</div>
+<p class="note-text">If you didn't request a password reset, you can safely ignore this email. Your account remains secure.</p>
+</div>
+</div>
+<div class="footer">
+<p class="footer-text">© 2024 KipGo. All rights reserved.</p>
+<p class="footer-copy">This is an automated message, please do not reply.</p>
+</div>
+</div>
+</body>
+</html>`,
       });
     } catch (error) { this.logger.error('Error sending password reset email', error); }
   }
