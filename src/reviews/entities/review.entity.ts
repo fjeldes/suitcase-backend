@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -10,6 +11,8 @@ import { User } from '../../users/entities/user.entity';
 import { Location } from '../../locations/entities/location.entity';
 import { Booking } from '../../bookings/entities/booking.entity';
 
+@Index(['locationId'])
+@Index(['bookingId'])
 @Entity('reviews')
 export class Review {
   @PrimaryGeneratedColumn('uuid')
@@ -21,15 +24,21 @@ export class Review {
   @Column({ type: 'text', nullable: true })
   comment: string;
 
-  // Relación con el usuario que hace la reseña
+  @Column()
+  userId: string;
+
+  @Column()
+  locationId: string;
+
+  @Column()
+  bookingId: string;
+
   @ManyToOne(() => User, (user) => user.reviews)
   user: User;
 
-  // Relación con el local reseñado
   @ManyToOne(() => Location, (location) => location.reviews)
   location: Location;
 
-  // Relación con la reserva específica (para verificar que es real)
   @ManyToOne(() => Booking, (booking) => booking.review)
   booking: Booking;
 

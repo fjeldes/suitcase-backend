@@ -40,4 +40,9 @@ export class CreateBookingDto {
 
   @IsObject()
   items: BookingItemsDto
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  declaredValue?: number
 }

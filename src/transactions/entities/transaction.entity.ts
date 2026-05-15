@@ -1,7 +1,7 @@
 // src/transactions/entities/transaction.entity.ts
 
 import { Booking } from "src/bookings/entities/booking.entity";
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 
 export enum TransactionStatus {
     PENDING = 'pending',
@@ -21,10 +21,16 @@ export enum TransactionType {
     EXTENSION = 'extension',
 }
 
+@Index(['status'])
+@Index(['bookingId'])
+@Index(['createdAt'])
 @Entity('transactions')
 export class Transaction {
     @PrimaryGeneratedColumn('uuid')
     id: string;
+
+    @Column()
+    bookingId: string;
 
     @ManyToOne(() => Booking, (booking) => booking.transactions)
     booking: Booking;

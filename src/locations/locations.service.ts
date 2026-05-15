@@ -107,34 +107,28 @@ export class LocationsService {
     async findOne(id: string) {
         const location = await this.locationRepository.findOne({
             where: { id },
-            relations: ['bookings'],
         });
 
         if (!location) throw new NotFoundException('Location not found');
 
-        const activeBookings = location.bookings.filter(
-            b => ['in_storage', 'confirmed'].includes(b.status.toLowerCase())
-        );
+        const occupied = await this.bookingRepository
+            .createQueryBuilder('booking')
+            .select('COALESCE(SUM(booking.items->>\'small\')::int, 0)', 'small')
+            .addSelect('COALESCE(SUM(booking.items->>\'medium\')::int, 0)', 'medium')
+            .addSelect('COALESCE(SUM(booking.items->>\'large\')::int, 0)', 'large')
+            .where('booking.locationId = :locationId', { locationId: id })
+            .andWhere('booking.status IN (:...statuses)', { statuses: ['in_storage', 'confirmed'] })
+            .getRawOne();
 
-        const occupied = activeBookings.reduce((acc, booking) => {
-            acc.small += Number(booking.items?.small || 0);
-            acc.medium += Number(booking.items?.medium || 0);
-            acc.large += Number(booking.items?.large || 0);
-            return acc;
-        }, { small: 0, medium: 0, large: 0 });
-
-        // IMPORTANTE: Aquí usamos 'location.capacity' que es lo que viene de la DB
         const availability = {
-            small: Math.max(0, (location.capacity?.small || 0) - occupied.small),
-            medium: Math.max(0, (location.capacity?.medium || 0) - occupied.medium),
-            large: Math.max(0, (location.capacity?.large || 0) - occupied.large),
+            small: Math.max(0, (location.capacity?.small || 0) - Number(occupied?.small || 0)),
+            medium: Math.max(0, (location.capacity?.medium || 0) - Number(occupied?.medium || 0)),
+            large: Math.max(0, (location.capacity?.large || 0) - Number(occupied?.large || 0)),
         };
 
-        const { bookings, ...dataWithoutBookings } = location;
-
         return {
-            ...dataWithoutBookings,
-            occupied,
+            ...location,
+            occupied: { small: Number(occupied?.small || 0), medium: Number(occupied?.medium || 0), large: Number(occupied?.large || 0) },
             availability,
         };
     }

@@ -63,9 +63,11 @@ export class ActivityLogsService {
   /**
    * Obtiene el historial reciente para el dashboard del owner
    */
-  async getOwnerRecentActivity(ownerId: string, limit = 10) {
+  async getOwnerRecentActivity(ownerId: string, limit = 10, locationId?: string) {
+    const where: any = { owner: { id: ownerId } };
+    if (locationId) where.location = { id: locationId };
     return this.activityLogRepository.find({
-      where: { owner: { id: ownerId } },
+      where,
       relations: ['location'],
       order: { createdAt: 'DESC' },
       take: limit,

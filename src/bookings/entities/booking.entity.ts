@@ -1,4 +1,4 @@
-import { Entity, Column, ManyToOne, BeforeInsert, OneToMany } from 'typeorm';
+import { Entity, Column, ManyToOne, BeforeInsert, OneToMany, Index } from 'typeorm';
 import { BaseEntity } from 'src/common/entities/base.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Location } from 'src/locations/entities/location.entity';
@@ -6,8 +6,18 @@ import { Review } from 'src/reviews/entities/review.entity';
 import { Transaction } from 'src/transactions/entities/transaction.entity';
 import { randomBytes } from 'crypto';
 
+@Index(['userId'])
+@Index(['locationId'])
+@Index(['status'])
+@Index(['startDate', 'endDate'])
 @Entity('bookings')
 export class Booking extends BaseEntity {
+  @Column()
+  userId: string;
+
+  @Column()
+  locationId: string;
+
   @ManyToOne(() => User, (user) => user.bookings)
   user: User;
 
@@ -55,6 +65,7 @@ export class Booking extends BaseEntity {
   days: number; // 👈 Importante guardar cuántos días se cobraron
 
   @Column({ unique: true, nullable: true })
+  @Index()
   qrCode: string;
 
   @BeforeInsert()
@@ -73,4 +84,10 @@ export class Booking extends BaseEntity {
 
   @OneToMany(() => Transaction, (transaction) => transaction.booking)
   transactions: Transaction[];
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, default: null })
+  declaredValue: number | null;
+
+  @Column({ type: 'json', nullable: true, default: null })
+  checkInPhotos: string[] | null;
 }

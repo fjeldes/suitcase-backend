@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 export enum PayoutStatus {
   PENDING = 'pending',
@@ -6,6 +6,8 @@ export enum PayoutStatus {
   FAILED = 'failed',
 }
 
+@Index(['ownerId'])
+@Index(['status'])
 @Entity('payouts')
 export class Payout {
   @PrimaryGeneratedColumn('uuid')

@@ -64,7 +64,15 @@ export class PaymentsController {
       await this.userRepository.update(userId, { stripeCustomerId: customerId });
     }
 
-    return this.paymentsService.createSetupIntent(customerId!);
+    const { clientSecret } = await this.paymentsService.createSetupIntent(customerId!);
+    const ephemeralKey = await this.paymentsService.createEphemeralKey(customerId!);
+
+    return {
+      clientSecret,
+      customer: customerId,
+      ephemeralKey: ephemeralKey.secret,
+      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+    };
   }
 
   @Post('confirm-payment')

@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { ConfigModule, ConfigService } from '@nestjs/config'
-import { BullModule } from '@nestjs/bullmq'
+// TODO: Cuando se requiera escalar, reemplazar por:
+// import { BullModule } from '@nestjs/bullmq'
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 
 import { UsersModule } from './users/users.module'
 import { LocationsModule } from './locations/locations.module'
@@ -25,10 +26,14 @@ import { PayoutsModule } from './payouts/payouts.module';
 import { TermsModule } from './terms/terms.module';
 import { StaffModule } from './staff/staff.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { FinancialsModule } from './financials/financials.module';
+import { ClaimsModule } from './claims/claims.module';
+import { ErrorLogsModule } from './error-logs/error-logs.module';
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 30 }]),
 
     ConfigModule.forRoot({
       isGlobal: true,
@@ -37,17 +42,17 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     }),
 
     ScheduleModule.forRoot(),
-    // CONFIGURACIÓN DE BULLMQ
-    BullModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        connection: {
-          // Asegúrate de que estas keys existan en tu 'configuration'
-          host: configService.get('redis.host') || 'localhost',
-          port: configService.get<number>('redis.port') || 6379,
-        },
-      }),
-    }),
+    // TODO: Cuando se requiera cola de notificaciones con reintentos,
+    // descomentar BullMQ y agregar Redis a la infraestructura:
+    // BullModule.forRootAsync({
+    //   inject: [ConfigService],
+    //   useFactory: (configService: ConfigService) => ({
+    //     connection: {
+    //       host: configService.get('redis.host') || 'localhost',
+    //       port: configService.get<number>('redis.port') || 6379,
+    //     },
+    //   }),
+    // }),
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -61,7 +66,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
         database: configService.get('database.name'),
 
         autoLoadEntities: true,
-        synchronize: true, // Dvelopment only, use migrations in production
+        synchronize: process.env.NODE_ENV !== 'production',
       }),
     }),
 
@@ -82,11 +87,18 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     TermsModule,
     StaffModule,
     WebhooksModule,
+    FinancialsModule,
+    ClaimsModule,
+    ErrorLogsModule,
   ],
   providers: [
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
     },
   ],
 })

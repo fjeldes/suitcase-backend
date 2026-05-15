@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { OAuth2Client } from 'google-auth-library';
 import { DataSource } from 'typeorm';
+import * as crypto from 'node:crypto';
 
 import { MailService } from 'src/mail/mail.service';
 import { TermsService } from 'src/terms/terms.service';
@@ -51,7 +52,7 @@ export class AuthService {
     }
 
     private generateOTP(): string {
-        return Math.floor(100000 + Math.random() * 900000).toString();
+        return crypto.randomInt(100000, 999999).toString();
     }
 
     private getOTPExpiry(): Date {
@@ -143,8 +144,9 @@ export class AuthService {
                 otpExpiresAt,
             });
 
-            // LOG PARA PRUEBAS (Resend Sandbox bypass)
-            this.logger.debug(`[DEV ONLY] OTP for ${email}: ${otpCode}`);
+            if (process.env.NODE_ENV !== 'production') {
+                this.logger.debug(`[DEV ONLY] OTP for ${email}: ${otpCode}`);
+            }
 
             const savedUser = await queryRunner.manager.save(user);
 
@@ -362,8 +364,9 @@ export class AuthService {
 
         await this.usersService.update(user.id, { otpCode, otpExpiresAt });
 
-        // LOG PARA PRUEBAS (Resend Sandbox bypass)
-        this.logger.debug(`[DEV ONLY] Resend OTP for ${email}: ${otpCode}`);
+        if (process.env.NODE_ENV !== 'production') {
+            this.logger.debug(`[DEV ONLY] Resend OTP for ${email}: ${otpCode}`);
+        }
 
         this.mailService.sendVerificationEmail(email, otpCode).catch(e => console.error(e));
         return { message: 'Verification code sent' };
@@ -378,8 +381,9 @@ export class AuthService {
 
         await this.usersService.update(user.id, { otpCode, otpExpiresAt });
 
-        // LOG PARA PRUEBAS (Resend Sandbox bypass)
-        this.logger.debug(`[DEV ONLY] Password Reset OTP for ${email}: ${otpCode}`);
+        if (process.env.NODE_ENV !== 'production') {
+            this.logger.debug(`[DEV ONLY] Password Reset OTP for ${email}: ${otpCode}`);
+        }
 
         this.mailService.sendPasswordResetEmail(email, otpCode).catch(e => console.error(e));
         return { message: 'If the email exists, a code was sent' };

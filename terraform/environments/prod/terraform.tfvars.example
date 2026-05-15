@@ -1,0 +1,5 @@
+project_id            = "suitcase-project-prod"
+region                = "us-central1"
+db_password           = "change-me-strong-password"
+image_url             = "us-central1-docker.pkg.dev/suitcase-project-prod/cloud-run/suitcase-api:latest"
+service_account_email = "suitcase-prod-sa@suitcase-project-prod.iam.gserviceaccount.com"

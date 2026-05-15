@@ -22,4 +22,11 @@ export class NotificationsController {
     findAll(@Query('userId') userId: string) {
         return this.notificationsService.findByUser(userId);
     }
+
+    @UseGuards(JwtAuthGuard)
+    @Get('unread-count')
+    async getUnreadCount(@Req() req: any) {
+        const userId = req.user.userId;
+        return this.notificationsService.getUnreadCount(userId);
+    }
 }

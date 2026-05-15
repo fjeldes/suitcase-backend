@@ -8,7 +8,7 @@ export class PaymentsService {
 
   constructor(private configService: ConfigService) {
     this.stripe = new Stripe(this.configService.get('STRIPE_SECRET_KEY') || 'sk_test_placeholder', {
-      apiVersion: '2026-04-22.dahlia' as any, // Usa la versión esperada por los tipos instalados
+      apiVersion: '2025-01-27.acacia' as any,
     });
   }
 

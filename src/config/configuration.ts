@@ -1,4 +1,7 @@
 export default () => ({
+  cors: {
+    origin: (process.env.CORS_ORIGIN || 'http://localhost:3000').split(','),
+  },
   database: {
     host: process.env.DB_HOST,
     port: parseInt(process.env.DB_PORT || '5432'),

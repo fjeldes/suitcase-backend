@@ -61,7 +61,8 @@ export class BookingsController {
         )
     }
 
-    // 🔥 TODOS (temporal / debug)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin')
     @Get()
     findAll() {
         return this.bookingsService.findAll()
@@ -122,5 +123,15 @@ export class BookingsController {
     findOne(@Param('id') id: string, @Req() req: any) {
         // Pasamos el booking que el Guard ya encontró (req.booking)
         return this.bookingsService.findOne(req.booking, req.user.userId);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Patch(':id/photos')
+    async savePhotos(
+        @Param('id') id: string,
+        @Body() body: { photos: string[] },
+        @Req() req: any,
+    ) {
+        return this.bookingsService.saveCheckInPhotos(id, body.photos, req.user.userId);
     }
 }

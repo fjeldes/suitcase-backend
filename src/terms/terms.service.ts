@@ -8,7 +8,7 @@ const DEFAULT_TERMS: Record<TermsType, string> = {
   [TermsType.CLIENT]: `TERMS & CONDITIONS — CLIENT
 
 1. Acceptance of Terms
-By using SecureCustodian services, you agree to be bound by these terms.
+By using KipGo services, you agree to be bound by these terms.
 
 2. Service Description
 We connect travelers with local stores for temporary luggage storage.
@@ -87,7 +87,7 @@ You may request access to, correction of, or deletion of your personal data at a
 We retain your data for as long as your account is active and up to 3 years after last activity, as required by applicable law.
 
 7. Contact
-For privacy inquiries: privacy@securecustodian.app
+For privacy inquiries: privacy@kipgo.app
 
 8. Changes
 We will notify you of material changes via email or in-app notification.`,

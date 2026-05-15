@@ -1,7 +1,8 @@
-import { JwtGuard } from './jwt.guard';
+import { JwtAuthGuard } from './jwt.guard';
 
-describe('JwtGuard', () => {
+describe('JwtAuthGuard', () => {
   it('should be defined', () => {
-    expect(new JwtGuard()).toBeDefined();
+    const guard = new JwtAuthGuard();
+    expect(guard).toBeDefined();
   });
 });

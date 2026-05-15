@@ -22,6 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         const roles = [payload.roles].flat().filter(Boolean);
 
         return {
+            id: payload.sub,
             userId: payload.sub,
             email: payload.email,
             roles,

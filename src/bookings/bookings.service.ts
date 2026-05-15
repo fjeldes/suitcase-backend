@@ -17,14 +17,15 @@ import { UpdateBookingDto } from './dto/update-booking.dto'
 import { Booking } from './entities/booking.entity'
 import { User } from 'src/users/entities/user.entity'
 import { PaymentsService } from 'src/payments/payments.service'
-import Stripe from 'node_modules/stripe/esm/stripe.esm.node'
+import Stripe from 'stripe'
 import { BookingCalculator } from './logic/booking.calculator'
 import { PaymentMethod, Transaction, TransactionStatus } from 'src/transactions/entities/transaction.entity'
+import { StaffAssignment } from 'src/staff/entities/staff-assignment.entity'
 
 @Injectable()
 export class BookingsService {
     private readonly GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutos
-    private stripe: Stripe;
+    private stripe: any;
     constructor(
         @InjectRepository(Booking)
         private bookingRepository: Repository<Booking>,
@@ -148,6 +149,7 @@ export class BookingsService {
             days,
             status: 'confirmed',
             items,
+            declaredValue: dto.declaredValue ?? null,
             user: { id: userId },
             location: { id: locationId },
         });
@@ -317,7 +319,7 @@ export class BookingsService {
 
         const savedBooking = await this.bookingRepository.save(booking)
 
-        // Activity log para los owners
+        // Notificar a los owners
         if (booking.location?.owners) {
             for (const owner of booking.location.owners) {
                 if (owner.user?.id) {
@@ -326,6 +328,7 @@ export class BookingsService {
                         booking.location.id,
                         `#${booking.id.slice(0, 4)}`
                     );
+                    this.notificationsService.notifyBookingCancelled(owner.user.id, booking.id);
                 }
             }
         }
@@ -548,11 +551,18 @@ export class BookingsService {
 
         const now = new Date();
         const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const locationName = booking.location?.name || 'Store';
+        const clientUserId = booking.user?.id;
 
         switch (booking.status) {
             case 'confirmed':
                 booking.status = 'in_storage';
                 booking.checkedInAt = now;
+
+                if (clientUserId) {
+                    this.notificationsService.notifyCheckIn(clientUserId, booking.id, locationName);
+                }
+
                 if (booking.location?.owners) {
                     for (const owner of booking.location.owners) {
                         if (owner.user?.id) this.activityLogsService.logCollectionCompleted(owner.user.id, booking.location.id, `#${booking.id.slice(0, 4)} Check-in`, timeStr);
@@ -570,10 +580,17 @@ export class BookingsService {
                     const extraDays = Math.max(1, Math.ceil((diffMs - GRACE_MS) / (24 * 60 * 60 * 1000)));
                     surcharge = await this.chargeExtension(booking, extraDays);
                     booking.endDate = new Date(endDate.getTime() + extraDays * 24 * 60 * 60 * 1000);
+                    if (clientUserId) {
+                        this.notificationsService.notifyExtensionCharged(clientUserId, booking.id, surcharge?.totalAmount || 0, extraDays);
+                    }
                 }
 
                 booking.status = 'completed';
                 booking.checkedOutAt = now;
+
+                if (clientUserId) {
+                    this.notificationsService.notifyCheckOut(clientUserId, booking.id, locationName);
+                }
 
                 if (booking.location?.owners) {
                     for (const owner of booking.location.owners) {
@@ -592,6 +609,28 @@ export class BookingsService {
     }
 
     // bookings.service.ts
+
+    async saveCheckInPhotos(bookingId: string, photos: string[], userId: string) {
+        const booking = await this.bookingRepository.findOne({
+            where: { id: bookingId },
+            relations: ['location', 'location.owners', 'location.owners.user'],
+        });
+        if (!booking) throw new NotFoundException('Booking not found');
+
+        const isOwner = booking.location?.owners?.some((o: any) => o.user?.id === userId);
+        const isStaff = await this.isUserStaffForLocation(userId, booking.location?.id);
+        if (!isOwner && !isStaff) throw new ForbiddenException('Not authorized');
+
+        booking.checkInPhotos = photos;
+        return this.bookingRepository.save(booking);
+    }
+
+    private async isUserStaffForLocation(userId: string, locationId: string): Promise<boolean> {
+        const count = await this.bookingRepository.manager.count(StaffAssignment, {
+            where: { staff: { id: userId }, location: { id: locationId } },
+        });
+        return count > 0;
+    }
 
     async getBookingForOwner(qrCode: string, userId: string) {
         const booking = await this.bookingRepository.findOne({

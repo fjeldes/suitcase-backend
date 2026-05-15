@@ -22,15 +22,20 @@ export class StorageController {
     @UploadedFile() file: Express.Multer.File,
     @Query('folder') folder: string = 'general',
   ) {
-    console.log(`[Storage] Intentando subir imagen a la carpeta: ${folder}`);
-    console.log(`[Storage] Archivo recibido:`, file ? { name: file.originalname, size: file.size } : 'Ninguno');
-
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
 
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException(`Invalid file type: ${file.mimetype}. Allowed: ${allowedMimeTypes.join(', ')}`);
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException('File too large. Maximum size is 10MB');
+    }
+
     const url = await this.storageService.uploadImage(file, folder);
-    console.log(`[Storage] Subida exitosa. URL: ${url}`);
     return { url };
   }
 }

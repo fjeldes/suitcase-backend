@@ -1,4 +1,5 @@
 import { Controller, Post, Patch, Body, UnauthorizedException, UseGuards, Req } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
@@ -13,11 +14,13 @@ export class AuthController {
     return this.authService.loginWithGoogle(googleLoginDto.token);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('signup')
   async signup(@Body() createUserDto: CreateUserDto) {
     return this.authService.signUp(createUserDto);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @Post('login')
   async login(@Body() body: { email: string; password: string }) {
     return this.authService.login(body.email, body.password);
@@ -41,21 +44,25 @@ export class AuthController {
     return this.authService.becomeOwner(req.user.userId);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('verify-email')
   async verifyEmail(@Body() body: { email: string; code: string }) {
     return this.authService.verifyEmail(body.email, body.code);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
   @Post('resend-code')
   async resendCode(@Body() body: { email: string }) {
     return this.authService.resendVerificationCode(body.email);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
   @Post('forgot-password')
   async forgotPassword(@Body() body: { email: string }) {
     return this.authService.forgotPassword(body.email);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('reset-password')
   async resetPassword(@Body() body: { email: string; code: string; newPassword: string }) {
     return this.authService.resetPassword(body.email, body.code, body.newPassword);

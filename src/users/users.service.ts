@@ -46,28 +46,29 @@ export class UsersService implements OnModuleInit {
             }
         }
 
-        // Admin por defecto
-        const adminEmail = 'admin@example.com';
-        const existingAdmin = await this.userRepository.findOne({ where: { email: adminEmail } });
-        if (!existingAdmin) {
-            const hashedPassword = await bcrypt.hash('admin123', 10);
-            const adminUser = this.userRepository.create({
-                email: adminEmail,
-                password: hashedPassword,
-                isEmailVerified: true,
-                mustChangePassword: true,
-            });
-            const saved = await this.userRepository.save(adminUser);
+        if (process.env.NODE_ENV !== 'production') {
+            const adminEmail = 'admin@example.com';
+            const existingAdmin = await this.userRepository.findOne({ where: { email: adminEmail } });
+            if (!existingAdmin) {
+                const hashedPassword = await bcrypt.hash('admin123', 10);
+                const adminUser = this.userRepository.create({
+                    email: adminEmail,
+                    password: hashedPassword,
+                    isEmailVerified: true,
+                    mustChangePassword: true,
+                });
+                const saved = await this.userRepository.save(adminUser);
 
-            const role = await this.roleRepository.findOne({ where: { name: 'admin' } });
-            if (role) {
-                await this.userRoleRepository.save({ user: { id: saved.id }, role: { id: role.id } });
+                const role = await this.roleRepository.findOne({ where: { name: 'admin' } });
+                if (role) {
+                    await this.userRoleRepository.save({ user: { id: saved.id }, role: { id: role.id } });
+                }
+
+                const profile = this.profileRepository.create({ firstName: 'Admin', user: saved });
+                await this.profileRepository.save(profile);
+
+                console.log('✅ Admin user created (admin@example.com / admin123)');
             }
-
-            const profile = this.profileRepository.create({ firstName: 'Admin', user: saved });
-            await this.profileRepository.save(profile);
-
-            console.log('✅ Admin user created (admin@example.com / admin123)');
         }
     }
 

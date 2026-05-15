@@ -11,7 +11,7 @@ export class MailService {
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('resend.apiKey');
-    const fromName = this.configService.get<string>('resend.fromName') || 'SecureCustodian';
+    const fromName = this.configService.get<string>('resend.fromName') || 'KipGo';
     const fromEmail = this.configService.get<string>('resend.fromEmail') || 'onboarding@resend.dev';
     this.fromEmail = `${fromName} <${fromEmail}>`;
     this.isConfigured = !!apiKey && apiKey !== 're_...' && !apiKey.includes('placeholder');
@@ -36,8 +36,8 @@ export class MailService {
     try {
       return await this.resend.emails.send({
         from: this.fromEmail, to,
-        subject: 'Verify your SecureCustodian Email',
-        html: `<div style="font-family:sans-serif;padding:20px;text-align:center;"><h2 style="color:#0A0E5E;">Welcome to SecureCustodian!</h2><p>Enter this code to verify your email:</p><h1 style="color:#0A0E5E;letter-spacing:5px;">${code}</h1><p>Expires in 15 minutes.</p></div>`,
+        subject: 'Verify your KipGo Email',
+        html: `<div style="font-family:sans-serif;padding:20px;text-align:center;"><h2 style="color:#0A0E5E;">Welcome to KipGo!</h2><p>Enter this code to verify your email:</p><h1 style="color:#0A0E5E;letter-spacing:5px;">${code}</h1><p>Expires in 15 minutes.</p></div>`,
       });
     } catch (error) { this.logger.error('Error sending verification email', error); }
   }
@@ -48,7 +48,7 @@ export class MailService {
     try {
       return await this.resend.emails.send({
         from: this.fromEmail, to,
-        subject: 'Reset your SecureCustodian Password',
+        subject: 'Reset your KipGo Password',
         html: `<div style="font-family:sans-serif;padding:20px;text-align:center;"><h2>Password Reset</h2><p>Use this code to reset your password:</p><h1 style="color:#E53E3E;letter-spacing:5px;">${code}</h1><p>Expires in 15 minutes.</p></div>`,
       });
     } catch (error) { this.logger.error('Error sending password reset email', error); }

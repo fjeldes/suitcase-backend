@@ -1,4 +1,4 @@
-import { Entity, Column, OneToOne, OneToMany } from 'typeorm'
+import { Entity, Column, OneToOne, OneToMany, Index } from 'typeorm'
 import { BaseEntity } from 'src/common/entities/base.entity'
 import { LocationOwner } from 'src/locations/entities/location-owner.entity'
 import { UserRole } from './user-role.entity'
@@ -10,6 +10,7 @@ import { Review } from 'src/reviews/entities/review.entity'
 @Entity({ name: 'users' })
 export class User extends BaseEntity {
     @Column({ unique: true })
+    @Index()
     email: string
 
     @Column({
@@ -19,6 +20,7 @@ export class User extends BaseEntity {
     password?: string | null;
 
     @Column({ default: true })
+    @Index()
     isActive: boolean
 
     @Column({ default: false })
@@ -50,6 +52,7 @@ export class User extends BaseEntity {
     reviews: Review[];
 
     @Column({ type: 'varchar', nullable: true })
+    @Index()
     stripeCustomerId?: string | null;
 
     @Column({ default: false })

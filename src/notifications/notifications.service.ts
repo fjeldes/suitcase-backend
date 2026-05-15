@@ -1,18 +1,23 @@
-// backend/src/notifications/notifications.service.ts
-import { Injectable } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
+import { Injectable, Logger } from '@nestjs/common';
+// TODO: Cuando se requiera BullMQ (Redis), descomentar:
+// import { InjectQueue } from '@nestjs/bullmq';
+// import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Queue } from 'bullmq';
 import { DeviceToken } from './entities/device-token.entity';
 import { RegisterTokenDto } from './dto/register-token.dto';
-// Importamos el Enum para evitar el error de "Type string is not assignable"
 import { Notification, NotificationCategory } from './entities/notification.entity';
+import { Expo, ExpoPushMessage } from 'expo-server-sdk';
+
+const expo = new Expo();
 
 @Injectable()
 export class NotificationsService {
+    private readonly logger = new Logger(NotificationsService.name);
+
     constructor(
-        @InjectQueue('push-notifications') private readonly notificationQueue: Queue,
+        // TODO: Descomentar cuando se agregue Redis:
+        // @InjectQueue('push-notifications') private readonly notificationQueue: Queue,
 
         @InjectRepository(DeviceToken)
         private readonly deviceTokenRepository: Repository<DeviceToken>,
@@ -20,17 +25,39 @@ export class NotificationsService {
         private readonly notificationRepository: Repository<Notification>,
     ) { }
 
-    /**
-     * LÓGICA PARA EL CONTROLADOR (Guardar el token en DB)
-     */
+    private async sendPush(userId: string, title: string, body: string, data?: Record<string, any>) {
+        try {
+            const tokens = await this.deviceTokenRepository.find({
+                where: { user: { id: userId } }
+            });
+            if (tokens.length === 0) return;
+
+            const messages: ExpoPushMessage[] = [];
+            for (const pushToken of tokens) {
+                if (!Expo.isExpoPushToken(pushToken.token)) continue;
+                messages.push({
+                    to: pushToken.token,
+                    sound: 'default',
+                    title,
+                    body,
+                    data: data || {},
+                });
+            }
+
+            const chunks = expo.chunkPushNotifications(messages);
+            for (const chunk of chunks) {
+                await expo.sendPushNotificationsAsync(chunk);
+            }
+        } catch (error) {
+            this.logger.error('Error sending push notification:', error);
+        }
+    }
+
     async registerToken(userId: string, dto: RegisterTokenDto) {
         const { token, provider, deviceModel } = dto;
 
         let deviceToken = await this.deviceTokenRepository.findOne({
-            where: {
-                token: token,
-                userId: userId
-            },
+            where: { token, userId },
         });
 
         if (deviceToken) {
@@ -38,63 +65,96 @@ export class NotificationsService {
             return this.deviceTokenRepository.save(deviceToken);
         }
 
-        const newToken = this.deviceTokenRepository.create({
-            token,
-            provider,
-            deviceModel,
-            userId,
-        });
-
+        const newToken = this.deviceTokenRepository.create({ token, provider, deviceModel, userId });
         return this.deviceTokenRepository.save(newToken);
     }
 
-    /**
-     * LÓGICA PARA ENCOLAR
-     */
     async notifyBookingCreated(userId: string, bookingId: string) {
-        await this.notificationQueue.add('send-push', {
-            userId,
-            title: '¡Reserva confirmada! ✅',
-            body: `Tu reserva #${bookingId.substring(0, 8)} ha sido creada con éxito.`,
-        }, { attempts: 3, backoff: 5000 });
+        await this.sendPush(userId, '¡Reserva confirmada! ✅', `Tu reserva #${bookingId.substring(0, 8)} ha sido creada con éxito.`);
     }
 
     async notifyNewBookingForOwner(ownerId: string, bookingId: string) {
-        // 1. Persistir en la base de datos
-        // Usamos .create() primero para que TypeScript valide el objeto antes del .save()
         const notification = await this.notificationRepository.save(
             this.notificationRepository.create({
-                // Si en la entidad es una relación ManyToOne, usa userId o user: { id: ownerId }
                 userId: ownerId,
                 title: '¡Nueva reserva recibida! 📦',
                 message: `Tienes una nueva solicitud de reserva (#${bookingId.substring(0, 8)}) pendiente.`,
-                // USAR EL ENUM AQUÍ ES CLAVE
                 category: NotificationCategory.BOOKINGS,
                 isRead: false,
-                metadata: {
-                    bookingId: bookingId,
-                    type: 'NEW_BOOKING'
-                }
+                metadata: { bookingId, type: 'NEW_BOOKING' }
             })
         );
 
-        // 2. Enviar a la cola de BullMQ para el Push Notification
-        await this.notificationQueue.add('send-push', {
-            userId: ownerId,
-            title: notification.title,
-            // Aquí usamos notification.message (asegúrate que en la entidad se llame message y no body)
-            body: notification.message,
-            data: {
-                bookingId: bookingId
-            }
-        }, { attempts: 3, backoff: 5000 });
+        await this.sendPush(ownerId, notification.title, notification.message, { bookingId });
     }
 
-    // Dentro de la clase NotificationsService
     async findByUser(userId: string) {
         return this.notificationRepository.find({
             where: { userId },
-            order: { createdAt: 'DESC' }, // Para que las más nuevas salgan primero
+            order: { createdAt: 'DESC' },
         });
+    }
+
+    async notifyCheckIn(userId: string, bookingId: string, locationName: string) {
+        const notification = await this.notificationRepository.save(
+            this.notificationRepository.create({
+                userId,
+                title: 'Equipaje recibido ✅',
+                message: `Tu equipaje ha sido recibido en ${locationName} (#${bookingId.substring(0, 8)}).`,
+                category: NotificationCategory.BOOKINGS,
+                isRead: false,
+                metadata: { bookingId, type: 'CHECK_IN' }
+            })
+        );
+        await this.sendPush(userId, notification.title, notification.message, { bookingId });
+    }
+
+    async notifyCheckOut(userId: string, bookingId: string, locationName: string) {
+        const notification = await this.notificationRepository.save(
+            this.notificationRepository.create({
+                userId,
+                title: 'Equipaje retirado 🎒',
+                message: `Tu equipaje ha sido retirado de ${locationName} (#${bookingId.substring(0, 8)}). ¡Gracias por confiar en nosotros!`,
+                category: NotificationCategory.BOOKINGS,
+                isRead: false,
+                metadata: { bookingId, type: 'CHECK_OUT' }
+            })
+        );
+        await this.sendPush(userId, notification.title, notification.message, { bookingId });
+    }
+
+    async notifyBookingCancelled(ownerId: string, bookingId: string) {
+        const notification = await this.notificationRepository.save(
+            this.notificationRepository.create({
+                userId: ownerId,
+                title: 'Reserva cancelada ❌',
+                message: `Un cliente ha cancelado la reserva #${bookingId.substring(0, 8)}.`,
+                category: NotificationCategory.BOOKINGS,
+                isRead: false,
+                metadata: { bookingId, type: 'BOOKING_CANCELLED' }
+            })
+        );
+        await this.sendPush(ownerId, notification.title, notification.message, { bookingId });
+    }
+
+    async notifyExtensionCharged(userId: string, bookingId: string, amount: number, days: number) {
+        const notification = await this.notificationRepository.save(
+            this.notificationRepository.create({
+                userId,
+                title: 'Cargo por extensión ⏱️',
+                message: `Se te ha cobrado $${amount} por ${days} día(s) adicional(es) en #${bookingId.substring(0, 8)}.`,
+                category: NotificationCategory.BOOKINGS,
+                isRead: false,
+                metadata: { bookingId, type: 'EXTENSION_CHARGED', amount, days }
+            })
+        );
+        await this.sendPush(userId, notification.title, notification.message, { bookingId });
+    }
+
+    async getUnreadCount(userId: string): Promise<{ count: number }> {
+        const count = await this.notificationRepository.count({
+            where: { userId, isRead: false },
+        });
+        return { count };
     }
 }

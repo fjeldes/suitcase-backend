@@ -1,7 +1,9 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Location } from '../../locations/entities/location.entity';
 
+@Index(['email'])
+@Index(['status'])
 @Entity('staff_invitations')
 export class StaffInvitation {
   @PrimaryGeneratedColumn('uuid')
