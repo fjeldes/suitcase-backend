@@ -62,11 +62,7 @@ provider "google" {
 # (porque otros proyectos pueden usarla y deshabilitarla rompería cosas).
 resource "google_project_service" "apis" {
   for_each = toset([
-    "sqladmin.googleapis.com",
-    "redis.googleapis.com",
     "run.googleapis.com",
-    "vpcaccess.googleapis.com",
-    "servicenetworking.googleapis.com",
     "storage.googleapis.com",
     "secretmanager.googleapis.com",
     "artifactregistry.googleapis.com",
@@ -88,15 +84,15 @@ resource "google_project_service" "apis" {
 # Normalmente Terraform lo deduce de las referencias automáticamente,
 # pero con for_each y project_service a veces necesita ayuda.
 
-# Red / VPC
-module "network" {
-  source     = "../../modules/network"
-  env        = "dev"
-  region     = var.region
-  project_id = var.project_id
-
-  depends_on = [google_project_service.apis]
-}
+# Red / VPC - No necesaria mientras usemos Supabase (DB externa, no Cloud SQL)
+# TODO: Descomentar cuando se requiera VPC para Cloud SQL o Redis:
+# module "network" {
+#   source     = "../../modules/network"
+#   env        = "dev"
+#   region     = var.region
+#   project_id = var.project_id
+#   depends_on = [google_project_service.apis]
+# }
 
 # Base de datos - usando Supabase (no Cloud SQL)
 # TODO: Si migras a Cloud SQL, descomentar este módulo y eliminar las variables directas abajo
@@ -139,11 +135,11 @@ module "cloud_run" {
   env                   = "dev"
   project_id            = var.project_id
   region                = var.region
-  connector_id          = module.network.connector_id
-  # Usando Supabase en vez de Cloud SQL:
+  connector_id          = ""
+  # Usando Supabase Session Pooler (IPv4 compatible):
   db_host               = var.supabase_db_host
-  db_port               = 5432
-  db_user               = "postgres"
+  db_port               = 6543
+  db_user               = "postgres.ixwkimgrcuywywjxfnos"
   db_password           = var.supabase_db_password
   db_name               = "postgres"
   storage_bucket_name   = module.storage.bucket_name
@@ -154,5 +150,5 @@ module "cloud_run" {
   cpu_limit             = "1"
   memory_limit          = "512Mi"
 
-  depends_on = [module.network, module.storage]
+  depends_on = [module.storage]
 }

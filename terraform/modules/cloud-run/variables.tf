@@ -14,8 +14,9 @@ variable "region" {
 }
 
 variable "connector_id" {
-  description = "ID del VPC connector para acceder a Cloud SQL y Redis."
+  description = "ID del VPC connector para acceder a Cloud SQL y Redis. Vacío si no se necesita."
   type        = string
+  default     = ""
 }
 
 variable "db_host" {
