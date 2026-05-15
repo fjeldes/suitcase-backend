@@ -38,7 +38,7 @@ terraform {
   # gcs = Google Cloud Storage. El bucket debe existir ANTES de correr terraform init.
   # prefix = carpeta virtual dentro del bucket (dev/ y prod/ comparten el mismo bucket).
   backend "gcs" {
-    bucket = "suitcase-terraform-state"
+    bucket = "kipgo-terraform-state-project-0555e0d7-6e59-4e0b-b59"
     prefix = "dev"
   }
 }
