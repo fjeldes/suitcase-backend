@@ -52,6 +52,17 @@ resource "google_cloud_run_service" "api" {
           container_port = 3000
         }
 
+        # Startup probe: la app tarda ~10s en conectar a Supabase y sync las tablas
+        startup_probe {
+          initial_delay_seconds = 0
+          timeout_seconds       = 240
+          period_seconds        = 240
+          failure_threshold     = 1
+          tcp_socket {
+            port = 3000
+          }
+        }
+
         # ─── VARIABLES DE ENTORNO ─────────────────────────────────────────
         # Aquí van las variables que el backend necesita para funcionar.
         # Algunas van en texto plano (no sensibles), otras desde Secret Manager.
@@ -89,7 +100,7 @@ resource "google_cloud_run_service" "api" {
         # ─── Redis ────────────────────────────────────────────────────────
         env {
           name  = "REDIS_HOST"
-          value = var.redis_host
+          value = var.redis_host != "" ? var.redis_host : "none"
         }
         env {
           name  = "REDIS_PORT"
@@ -204,24 +215,19 @@ resource "google_cloud_run_service" "api" {
     # ─── ANOTACIONES (metadata) ──────────────────────────────────────────
     # Configuraciones de infraestructura que no son del contenedor en sí.
     metadata {
-      annotations = {
-        # Escalado automático: mínimo N instancias, máximo M
-        "autoscaling.knative.dev/minScale" = tostring(var.min_instances)
-        "autoscaling.knative.dev/maxScale" = tostring(var.max_instances)
-
-        # Conecta Cloud Run a la VPC (para acceder a Cloud SQL y Redis)
-        "run.googleapis.com/vpc-access-connector" = var.connector_id
-
-        # private-ranges-only: solo enruta tráfico PRIVADO por el connector
-        # El tráfico a internet (ej: API de Stripe) sale directo, no por la VPC
-        "run.googleapis.com/vpc-access-egress" = "private-ranges-only"
-
-        # all: permite tráfico desde internet (público). Se define en metadata del servicio
-        # "run.googleapis.com/ingress" = "all"
-
-        # gen2: segunda generación de Cloud Run (mejor performance, más features)
-        "run.googleapis.com/execution-environment" = "gen2"
-      }
+      annotations = merge(
+        {
+          # Escalado automático
+          "autoscaling.knative.dev/minScale" = tostring(var.min_instances)
+          "autoscaling.knative.dev/maxScale" = tostring(var.max_instances)
+          # gen2: segunda generación de Cloud Run
+          "run.googleapis.com/execution-environment" = "gen2"
+        },
+        var.connector_id != "" ? {
+          "run.googleapis.com/vpc-access-connector" = var.connector_id
+          "run.googleapis.com/vpc-access-egress" = "private-ranges-only"
+        } : {},
+      )
     }
   }
 
