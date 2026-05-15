@@ -98,20 +98,20 @@ module "network" {
   depends_on = [google_project_service.apis]
 }
 
-# Base de datos
-module "database" {
-  source           = "../../modules/database"
-  env              = "dev"
-  project_id       = var.project_id
-  region           = var.region
-  vpc_id           = module.network.vpc_id        # ← output del módulo network
-  private_ip_range = module.network.private_ip_range
-  db_password      = var.db_password
-  db_tier          = "db-f1-micro"                 # La más barata
-  db_disk_size     = 10                            # Mínimo permitido
-
-  depends_on = [google_project_service.apis, module.network]
-}
+# Base de datos - usando Supabase (no Cloud SQL)
+# TODO: Si migras a Cloud SQL, descomentar este módulo y eliminar las variables directas abajo
+# module "database" {
+#   source           = "../../modules/database"
+#   env              = "dev"
+#   project_id       = var.project_id
+#   region           = var.region
+#   vpc_id           = module.network.vpc_id
+#   private_ip_range = module.network.private_ip_range
+#   db_password      = var.db_password
+#   db_tier          = "db-f1-micro"
+#   db_disk_size     = 10
+#   depends_on = [google_project_service.apis, module.network]
+# }
 
 # TODO: Descomentar cuando se requiera Redis:
 # module "redis" {
@@ -140,13 +140,12 @@ module "cloud_run" {
   project_id            = var.project_id
   region                = var.region
   connector_id          = module.network.connector_id
-  db_host               = module.database.private_ip
-  db_user               = module.database.app_user_name
-  db_password           = var.db_password
-  db_name               = module.database.database_name
-  # redis_host            = module.redis.host   # TODO: descomentar con Redis
-  # redis_port            = module.redis.port    # TODO: descomentar con Redis
-  storage_bucket_name   = module.storage.bucket_name
+  # Usando Supabase en vez de Cloud SQL:
+  db_host               = var.supabase_db_host
+  db_port               = 5432
+  db_user               = "postgres"
+  db_password           = var.supabase_db_password
+  db_name               = "postgres"
   image_url             = var.image_url
   service_account_email = var.service_account_email
   min_instances         = 0
@@ -154,5 +153,5 @@ module "cloud_run" {
   cpu_limit             = "1"
   memory_limit          = "512Mi"
 
-  depends_on = [module.network, module.database, module.storage]
+  depends_on = [module.network, module.storage]
 }

@@ -9,8 +9,13 @@ variable "region" {
   default     = "us-central1"
 }
 
-variable "db_password" {
-  description = "Cloud SQL PostgreSQL password"
+variable "supabase_db_host" {
+  description = "Supabase PostgreSQL host"
+  type        = string
+}
+
+variable "supabase_db_password" {
+  description = "Supabase PostgreSQL password"
   type        = string
   sensitive   = true
 }

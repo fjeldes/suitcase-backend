@@ -42,6 +42,9 @@ lerna-debug.log*
 .env.production.local
 .env.local
 
+# Terraform
+*.tfvars
+
 # temp directory
 .temp
 .tmp
