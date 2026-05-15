@@ -113,17 +113,16 @@ module "database" {
   depends_on = [google_project_service.apis, module.network]
 }
 
-# Redis
-module "redis" {
-  source              = "../../modules/redis"
-  env                 = "dev"
-  region              = var.region
-  vpc_id              = module.network.vpc_id
-  redis_tier          = "STANDARD_HA"
-  redis_memory_size_gb = 1
-
-  depends_on = [google_project_service.apis, module.network]
-}
+# TODO: Descomentar cuando se requiera Redis:
+# module "redis" {
+#   source              = "../../modules/redis"
+#   env                 = "dev"
+#   region              = var.region
+#   vpc_id              = module.network.vpc_id
+#   redis_tier          = "STANDARD_HA"
+#   redis_memory_size_gb = 1
+#   depends_on = [google_project_service.apis, module.network]
+# }
 
 # Storage
 module "storage" {
@@ -145,8 +144,8 @@ module "cloud_run" {
   db_user               = module.database.app_user_name
   db_password           = var.db_password
   db_name               = module.database.database_name
-  redis_host            = module.redis.host
-  redis_port            = module.redis.port
+  # redis_host            = module.redis.host   # TODO: descomentar con Redis
+  # redis_port            = module.redis.port    # TODO: descomentar con Redis
   storage_bucket_name   = module.storage.bucket_name
   image_url             = var.image_url
   service_account_email = var.service_account_email
@@ -155,5 +154,5 @@ module "cloud_run" {
   cpu_limit             = "1"
   memory_limit          = "512Mi"
 
-  depends_on = [module.network, module.database, module.redis, module.storage]
+  depends_on = [module.network, module.database, module.storage]
 }

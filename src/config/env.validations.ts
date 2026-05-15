@@ -15,8 +15,8 @@ export const envValidationSchema = Joi.object({
 
   GOOGLE_CLIENT_ID: Joi.string().required(),
 
-  REDIS_HOST: Joi.string().default('localhost'),
-  REDIS_PORT: Joi.number().default(6379),
+  REDIS_HOST: Joi.string().optional(),
+  REDIS_PORT: Joi.number().optional(),
 
   GCS_PROJECT_ID: Joi.string().required(),
   GCS_BUCKET_NAME: Joi.string().required(),

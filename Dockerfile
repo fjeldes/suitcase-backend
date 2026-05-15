@@ -19,8 +19,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./
 
 EXPOSE 3000
 
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "dist/main.js"]
+CMD ["sh", "-c", "npx typeorm migration:run -d dist/data-source.js 2>/dev/null; node dist/main.js"]

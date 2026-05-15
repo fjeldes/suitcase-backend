@@ -48,6 +48,7 @@ variable "db_name" {
 variable "redis_host" {
   description = "IP privada de Memorystore Redis."
   type        = string
+  default     = ""
 }
 
 variable "redis_port" {
