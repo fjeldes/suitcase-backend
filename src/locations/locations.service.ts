@@ -101,7 +101,23 @@ export class LocationsService {
 
     // Admin: todas las locaciones sin filtrar
     async findAllForAdmin() {
-        return this.locationRepository.find()
+        return this.locationRepository.find({ relations: ['owners', 'owners.user', 'owners.user.profile'] })
+    }
+
+    async findOneForAdmin(id: string) {
+        const location = await this.locationRepository.findOne({
+            where: { id },
+            relations: ['owners', 'owners.user', 'owners.user.profile'],
+        });
+        if (!location) throw new NotFoundException('Location not found');
+
+        const owners = (location.owners || []).map((o) => ({
+            name: o.user?.profile?.firstName || o.user?.email?.split('@')[0] || 'Unknown',
+            email: o.user?.email,
+            isPrimary: o.isPrimary,
+        }));
+
+        return { ...location, owners };
     }
 
     // Admin: actualizar status

@@ -131,6 +131,14 @@ export class LocationsController {
         return this.locationsService.findAllForAdmin();
     }
 
+    // 🔐 Admin: detalle de locación con info del owner
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin')
+    @Get('admin/:id')
+    findOneForAdmin(@Param('id') id: string) {
+        return this.locationsService.findOneForAdmin(id);
+    }
+
     // 🔐 Admin: aprobar/rechazar locación
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin')
