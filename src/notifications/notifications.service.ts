@@ -151,6 +151,20 @@ export class NotificationsService {
         await this.sendPush(userId, notification.title, notification.message, { bookingId });
     }
 
+    async notifyStoreApproved(userId: string, storeName: string) {
+        const notification = await this.notificationRepository.save(
+            this.notificationRepository.create({
+                userId,
+                title: 'Tienda aprobada ✅',
+                message: `Tu tienda "${storeName}" ha sido aprobada y ya está visible para los viajeros.`,
+                category: NotificationCategory.SYSTEM,
+                isRead: false,
+                metadata: { storeName, type: 'STORE_APPROVED' }
+            })
+        );
+        await this.sendPush(userId, notification.title, notification.message, { storeName });
+    }
+
     async getUnreadCount(userId: string): Promise<{ count: number }> {
         const count = await this.notificationRepository.count({
             where: { userId, isRead: false },

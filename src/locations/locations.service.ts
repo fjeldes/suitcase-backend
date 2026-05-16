@@ -10,6 +10,8 @@ import { Location } from './entities/location.entity'
 import { LocationOwner } from './entities/location-owner.entity'
 import { User } from 'src/users/entities/user.entity'
 import { Booking } from 'src/bookings/entities/booking.entity'
+import { NotificationsService } from 'src/notifications/notifications.service'
+import { MailService } from 'src/mail/mail.service'
 
 interface NextPickup {
     rawDate: Date;
@@ -31,6 +33,9 @@ export class LocationsService {
 
         @InjectRepository(Booking)
         private bookingRepository: Repository<Booking>,
+
+        private readonly notificationsService: NotificationsService,
+        private readonly mailService: MailService,
     ) { }
 
     // locations.service.ts
@@ -101,10 +106,26 @@ export class LocationsService {
 
     // Admin: actualizar status
     async updateStatus(id: string, status: 'pending' | 'active' | 'rejected') {
-        const location = await this.locationRepository.findOne({ where: { id } });
+        const location = await this.locationRepository.findOne({ where: { id }, relations: ['owners', 'owners.user'] });
         if (!location) throw new NotFoundException('Location not found');
         location.status = status;
-        return this.locationRepository.save(location);
+        const saved = await this.locationRepository.save(location);
+
+        // Notificar al owner cuando la tienda es aprobada o rechazada
+        if (status === 'active') {
+            for (const owner of (location.owners || [])) {
+                const ownerId = owner.user?.id;
+                if (ownerId) {
+                    this.notificationsService.notifyStoreApproved(ownerId, location.name);
+                    const user = owner.user;
+                    if (user?.email) {
+                        this.mailService.sendStoreApprovedEmail(user.email, user.profile?.firstName || 'User', location.name);
+                    }
+                }
+            }
+        }
+
+        return saved;
     }
 
     async findMyLocations(userId: string) {

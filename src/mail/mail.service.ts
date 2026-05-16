@@ -241,4 +241,26 @@ ${this.foot()}`,
       });
     } catch (error) { this.logger.error('Error sending welcome email', error); }
   }
+
+  async sendStoreApprovedEmail(to: string, name: string, storeName: string) {
+    this.logger.log(`[${this.isConfigured ? 'EMAIL' : 'DEV'}] Store approved email for ${name} (${to}): ${storeName}`);
+    if (!this.canSend()) return;
+    try {
+      await this.resend.emails.send({
+        from: this.fromEmail, to,
+        subject: `¡Tu tienda "${storeName}" ha sido aprobada!`,
+        html: `${this.head('')}
+<div class="content" style="text-align:center">
+<div style="font-size:48px;margin-bottom:16px">✅</div>
+<h1 style="font-size:28px;margin:0 0 8px">¡Tienda aprobada!</h1>
+<p style="margin:0 0 20px;font-size:15px">Hola ${name}, tu tienda <strong>${storeName}</strong> ha sido revisada y aprobada. Ya está visible para los viajeros que buscan dónde guardar su equipaje.</p>
+<div style="background:#f0fdf4;border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid #bbf7d0">
+<p style="font-size:14px;color:#166534;margin:0">Pronto comenzarás a recibir solicitudes de reserva. Asegúrate de mantener tus horarios actualizados.</p>
+</div>
+<a href="${this.baseUrl}/owner/dashboard" class="btn" style="background:linear-gradient(135deg,#000666,#1a237e);color:#fff">Ir al dashboard</a>
+</div>
+${this.foot()}`,
+      });
+    } catch (error) { this.logger.error('Error sending store approved email', error); }
+  }
 }
