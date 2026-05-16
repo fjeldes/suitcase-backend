@@ -374,6 +374,23 @@ export class AuthService {
         return { message: 'Verification code sent', code: process.env.NODE_ENV !== 'production' ? otpCode : undefined };
     }
 
+    async changeEmail(oldEmail: string, newEmail: string) {
+        const user = await this.usersService.findByEmail(oldEmail);
+        if (!user) throw new UnauthorizedException('User not found');
+        if (user.isEmailVerified) return { message: 'Email already verified' };
+
+        const existing = await this.usersService.findByEmail(newEmail);
+        if (existing) throw new BadRequestException('Email already in use');
+
+        const otpCode = this.generateOTP();
+        const otpExpiresAt = this.getOTPExpiry();
+
+        await this.usersService.update(user.id, { email: newEmail, otpCode, otpExpiresAt });
+        this.mailService.sendVerificationEmail(newEmail, otpCode).catch(e => console.error(e));
+
+        return { message: 'Verification code sent to new email', email: newEmail, code: process.env.NODE_ENV !== 'production' ? otpCode : undefined };
+    }
+
     async forgotPassword(email: string) {
         const user = await this.usersService.findByEmail(email);
         if (!user) return { message: 'If the email exists, a code was sent' }; // Evitar user enumeration

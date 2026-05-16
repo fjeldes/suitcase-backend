@@ -57,6 +57,12 @@ export class AuthController {
   }
 
   @Throttle({ default: { ttl: 60000, limit: 3 } })
+  @Post('change-email')
+  async changeEmail(@Body() body: { oldEmail: string; newEmail: string }) {
+    return this.authService.changeEmail(body.oldEmail, body.newEmail);
+  }
+
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
   @Post('forgot-password')
   async forgotPassword(@Body() body: { email: string }) {
     return this.authService.forgotPassword(body.email);
