@@ -7,14 +7,13 @@ import { Location } from './entities/location.entity';
 import { Booking } from 'src/bookings/entities/booking.entity';
 import { User } from 'src/users/entities/user.entity';
 import { StaffAssignment } from 'src/staff/entities/staff-assignment.entity';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([
-    Location,
-    LocationOwner,
-    User,
-    Booking,
-    StaffAssignment])],
+  imports: [
+    TypeOrmModule.forFeature([Location, LocationOwner, User, Booking, StaffAssignment]),
+    NotificationsModule,
+  ],
   providers: [LocationsService],
   controllers: [LocationsController]
 })
