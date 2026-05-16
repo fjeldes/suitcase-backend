@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './jwt/jwt.guard';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('google')
   async googleLogin(@Body() googleLoginDto: GoogleLoginDto) {
     return this.authService.loginWithGoogle(googleLoginDto.token);
