@@ -12,6 +12,12 @@ export class FAQ {
   @Column({ type: 'text' })
   answer: string;
 
+  @Column({ nullable: true })
+  questionEs: string;
+
+  @Column({ type: 'text', nullable: true })
+  answerEs: string;
+
   @Column({ default: 'general' })
   category: string;
 

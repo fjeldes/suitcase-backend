@@ -6,8 +6,8 @@ export class FAQsController {
   constructor(private readonly faqsService: FAQsService) {}
 
   @Get()
-  async findAll(@Query('category') category?: string) {
-    return this.faqsService.findAll(category);
+  async findAll(@Query('category') category?: string, @Query('lang') lang?: string) {
+    return this.faqsService.findAll(category, lang);
   }
 
   @Get('categories')
