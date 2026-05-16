@@ -49,25 +49,13 @@ export class MailService {
       const formattedCode = code.split('').join(' ');
       return await this.resend.emails.send({
         from: this.fromEmail, to,
-        subject: 'Verifica tu cuenta — KipGo',
-        html: `${this.head('')}
-<div class="content" style="text-align:center">
-<div style="font-size:40px;margin-bottom:16px">🔒</div>
-<h1 style="font-size:32px;margin:0 0 8px">Verifica tu cuenta</h1>
-<p style="margin:0 0 32px;font-size:15px">Ingresa este código de seguridad en la aplicación para confirmar tu registro y comenzar a usar KipGo.</p>
-<div style="background:#f3f3f3;border-radius:12px;padding:32px;margin-bottom:32px">
-<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#454652;margin-bottom:16px">Tu código de verificación</div>
-<div style="font-family:Manrope,sans-serif;font-size:48px;font-weight:800;letter-spacing:8px;color:#1a237e;margin:0">${formattedCode}</div>
-<p style="font-size:12px;color:#767683;margin-top:16px">Este código expirará en 10 minutos.</p>
-</div>
-<div style="text-align:left;display:flex;flex-direction:column;gap:16px;margin-bottom:32px">
-<div style="display:flex;align-items:flex-start;gap:16px;padding:16px;background:#f9f9f9;border-radius:12px"><div style="flex-shrink:0">📱</div><div><h3 style="font-family:Manrope,sans-serif;font-weight:700;color:#1a1c1c;margin:0 0 2px;font-size:14px">1. Abre la aplicación</h3><p style="font-size:13px;color:#454652;margin:0">Regresa a la pantalla de verificación en KipGo.</p></div></div>
-<div style="display:flex;align-items:flex-start;gap:16px;padding:16px;background:#f9f9f9;border-radius:12px"><div style="flex-shrink:0">⌨️</div><div><h3 style="font-family:Manrope,sans-serif;font-weight:700;color:#1a1c1c;margin:0 0 2px;font-size:14px">2. Ingresa el código</h3><p style="font-size:13px;color:#454652;margin:0">Escribe los 6 números exactos mostrados arriba.</p></div></div>
-<div style="display:flex;align-items:flex-start;gap:16px;padding:16px;background:#f9f9f9;border-radius:12px"><div style="flex-shrink:0">✅</div><div><h3 style="font-family:Manrope,sans-serif;font-weight:700;color:#1a1c1c;margin:0 0 2px;font-size:14px">3. Listo para empezar</h3><p style="font-size:13px;color:#454652;margin:0">Tu cuenta estará segura y lista para guardar tu equipaje.</p></div></div>
-</div>
-<p style="font-size:12px;color:#767683">Si no solicitaste este código, puedes ignorar este correo de forma segura.</p>
-</div>
-${this.foot()}`,
+        subject: 'Verify your KipGo account',
+        html: `<div style="font-family:sans-serif;padding:24px;max-width:480px;margin:0 auto;text-align:center">
+<h2 style="color:#1a237e;margin:0 0 16px">Welcome to KipGo</h2>
+<p style="color:#454652;font-size:15px;margin:0 0 24px">Enter this code to verify your email:</p>
+<div style="background:#f3f3f3;border-radius:12px;padding:24px;margin:0 0 24px;font-size:36px;font-weight:bold;letter-spacing:8px;color:#1a237e">${formattedCode}</div>
+<p style="color:#767683;font-size:12px;margin:0">Code expires in 10 minutes</p>
+</div>`,
       });
     } catch (error) { this.logger.error('Error sending verification email', error); }
   }
