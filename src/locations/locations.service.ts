@@ -113,9 +113,9 @@ export class LocationsService {
 
         const occupied = await this.bookingRepository
             .createQueryBuilder('booking')
-            .select('COALESCE(SUM(booking.items->>\'small\')::int, 0)', 'small')
-            .addSelect('COALESCE(SUM(booking.items->>\'medium\')::int, 0)', 'medium')
-            .addSelect('COALESCE(SUM(booking.items->>\'large\')::int, 0)', 'large')
+            .select("COALESCE(SUM((booking.items->>'small')::int), 0)", 'small')
+            .addSelect("COALESCE(SUM((booking.items->>'medium')::int), 0)", 'medium')
+            .addSelect("COALESCE(SUM((booking.items->>'large')::int), 0)", 'large')
             .where('booking.locationId = :locationId', { locationId: id })
             .andWhere('booking.status IN (:...statuses)', { statuses: ['in_storage', 'confirmed'] })
             .getRawOne();
