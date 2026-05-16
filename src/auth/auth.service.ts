@@ -45,7 +45,7 @@ export class AuthService {
         if (!isMatch) throw new UnauthorizedException('Invalid credentials');
 
         if (!user.isEmailVerified) {
-            throw new UnauthorizedException('Please verify your email before logging in');
+            throw new UnauthorizedException({ message: 'Please verify your email before logging in', email: user.email });
         }
 
         return user;
