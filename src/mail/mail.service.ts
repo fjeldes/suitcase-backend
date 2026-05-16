@@ -249,17 +249,41 @@ ${this.foot()}`,
       await this.resend.emails.send({
         from: this.fromEmail, to,
         subject: `¡Tu tienda "${storeName}" ha sido aprobada!`,
-        html: `${this.head('')}
-<div class="content" style="text-align:center">
-<div style="font-size:48px;margin-bottom:16px">✅</div>
-<h1 style="font-size:28px;margin:0 0 8px">¡Tienda aprobada!</h1>
-<p style="margin:0 0 20px;font-size:15px">Hola ${name}, tu tienda <strong>${storeName}</strong> ha sido revisada y aprobada. Ya está visible para los viajeros que buscan dónde guardar su equipaje.</p>
-<div style="background:#f0fdf4;border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid #bbf7d0">
-<p style="font-size:14px;color:#166534;margin:0">Pronto comenzarás a recibir solicitudes de reserva. Asegúrate de mantener tus horarios actualizados.</p>
+        html: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<style>body{font-family:Inter,sans-serif;background:#f9f9f9;margin:0;padding:0}.container{max-width:480px;margin:40px auto;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 20px 40px rgba(26,35,126,0.06)}.header{background:#ffffff;padding:32px;text-align:center;border-bottom:1px solid #e8e8e8}.logo{height:48px;width:auto}.hero{padding:32px 24px;text-align:center;background:linear-gradient(180deg,#f9f9f9,#ffffff)}.icon-circle{width:80px;height:80px;border-radius:50%;background:#ffdbcb;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 10px 20px rgba(253,108,0,0.15)}.icon-circle span{font-size:40px}h1{font-family:Manrope,sans-serif;font-size:36px;font-weight:800;color:#1a237e;margin:0 0 16px;line-height:1.2}.desc{color:#454652;font-size:16px;line-height:24px;max-width:400px;margin:0 auto}.details{padding:24px;margin:32px 24px;background:#f3f3f3;border-radius:12px;position:relative;overflow:hidden}.details-bar{position:absolute;top:0;left:0;width:4px;height:100%;background:#fd6c00}.details-title{font-family:Manrope,sans-serif;font-size:20px;font-weight:700;color:#1a237e;margin:0 0 16px;display:flex;align-items:center;gap:8px}.detail-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e2e2e2}.detail-row:last-child{border-bottom:none}.detail-label{font-size:13px;color:#454652}.detail-value{font-weight:600;color:#1a237e;font-size:14px}.status-badge{display:inline-flex;align-items:center;gap:6px;background:#e0f2f1;color:#00695c;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase}.status-dot{width:6px;height:6px;border-radius:50%;background:#00695c}.cta{padding:0 24px 48px;text-align:center}.cta-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#fd6c00,#9f4200);color:#ffffff;font-family:Manrope,sans-serif;font-weight:700;font-size:18px;padding:16px 32px;border-radius:12px;text-decoration:none;min-width:250px;box-shadow:0 10px 30px rgba(253,108,0,0.25)}.cta-sub{font-size:13px;color:#454652;margin-top:16px}.footer{background:#f3f3f3;padding:32px;text-align:center;border-top:1px solid #e8e8e8}.footer-links{display:flex;justify-content:center;gap:16px;margin-bottom:24px;flex-wrap:wrap}.footer-link{font-size:13px;color:#000666;text-decoration:none;font-weight:500}.footer-sep{color:#c6c5d4}.footer-text{font-size:12px;color:#454652;margin:0 0 4px}.footer-note{font-size:12px;color:#767683;max-width:400px;margin:0 auto}</style></head>
+<body>
+<div class="container">
+<div class="header"><img class="logo" src="${this.baseUrl}/assets/logo.png" alt="KipGo"/></div>
+<div class="hero">
+<div class="icon-circle"><span>✅</span></div>
+<h1>¡Tu tienda ha sido aprobada!</h1>
+<p class="desc">¡Felicidades! Tu ubicación de almacenamiento ha sido verificada y ahora está visible para los viajeros.</p>
 </div>
-<a href="${this.baseUrl}/owner/dashboard" class="btn" style="background:linear-gradient(135deg,#000666,#1a237e);color:#fff">Ir al dashboard</a>
+<div class="details">
+<div class="details-bar"></div>
+<h2 class="details-title">🏪 Detalles de tu Tienda</h2>
+<div class="detail-row"><span class="detail-label">Nombre de la Tienda</span><span class="detail-value">${storeName}</span></div>
+<div class="detail-row"><span class="detail-label">Estado</span><div class="status-badge"><div class="status-dot"></div>Activa / Publicada</div></div>
+<div class="detail-row"><span class="detail-label">Reservas</span><span class="detail-value" style="color:#9f4200">⚡ Lista para recibir</span></div>
 </div>
-${this.foot()}`,
+<div class="cta">
+<a class="cta-btn" href="${this.baseUrl}/owner/dashboard">Ir al Dashboard →</a>
+<p class="cta-sub">Comienza a gestionar tus espacios y horarios ahora.</p>
+</div>
+<div class="footer">
+<div class="footer-links">
+<a class="footer-link" href="#">Soporte Técnico</a><span class="footer-sep">•</span>
+<a class="footer-link" href="#">Preguntas Frecuentes</a><span class="footer-sep">•</span>
+<a class="footer-link" href="#">Términos Legales</a>
+</div>
+<p class="footer-text">© 2025 KipGo. Todos los derechos reservados.</p>
+<p class="footer-note">Has recibido este correo porque tu solicitud de tienda ha sido procesada.</p>
+</div>
+</div>
+</body>
+</html>`,
       });
     } catch (error) { this.logger.error('Error sending store approved email', error); }
   }
