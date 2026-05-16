@@ -50,13 +50,13 @@ export class AuthController {
     return this.authService.verifyEmail(body.email, body.code);
   }
 
-  @Throttle({ default: { ttl: 60000, limit: 3 } })
+  @Throttle({ default: { ttl: 120000, limit: 1 } })
   @Post('resend-code')
   async resendCode(@Body() body: { email: string }) {
     return this.authService.resendVerificationCode(body.email);
   }
 
-  @Throttle({ default: { ttl: 60000, limit: 3 } })
+  @Throttle({ default: { ttl: 120000, limit: 1 } })
   @Post('change-email')
   async changeEmail(@Body() body: { oldEmail: string; newEmail: string }) {
     return this.authService.changeEmail(body.oldEmail, body.newEmail);
