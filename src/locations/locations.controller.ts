@@ -15,6 +15,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LocationsService } from './locations.service'
 import { JwtAuthGuard } from 'src/auth/jwt/jwt.guard'
+import { RolesGuard } from 'src/auth/guards/roles.guards'
+import { Roles } from 'src/auth/decorators/roles.decorator'
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { StaffAssignment } from 'src/staff/entities/staff-assignment.entity';
 
@@ -119,5 +121,24 @@ export class LocationsController {
     @Get(':id')
     findOne(@Param('id') id: string) {
         return this.locationsService.findOne(id)
+    }
+
+    // 🔐 Admin: listar todas las locaciones
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin')
+    @Get('admin/all')
+    findAllForAdmin() {
+        return this.locationsService.findAllForAdmin();
+    }
+
+    // 🔐 Admin: aprobar/rechazar locación
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin')
+    @Patch(':id/status')
+    updateStatus(
+        @Param('id') id: string,
+        @Body() body: { status: 'pending' | 'active' | 'rejected' },
+    ) {
+        return this.locationsService.updateStatus(id, body.status);
     }
 }

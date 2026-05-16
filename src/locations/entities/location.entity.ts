@@ -55,6 +55,9 @@ export class Location extends BaseEntity {
   @Column({ default: true })
   isActive: boolean
 
+  @Column({ type: 'varchar', default: 'pending' })
+  status: 'pending' | 'active' | 'rejected'
+
   @Column({ type: 'json', nullable: true })
   workingHours: any;
 

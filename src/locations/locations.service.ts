@@ -91,7 +91,20 @@ export class LocationsService {
     }
 
     async findAll() {
+        return this.locationRepository.find({ where: { status: 'active' } })
+    }
+
+    // Admin: todas las locaciones sin filtrar
+    async findAllForAdmin() {
         return this.locationRepository.find()
+    }
+
+    // Admin: actualizar status
+    async updateStatus(id: string, status: 'pending' | 'active' | 'rejected') {
+        const location = await this.locationRepository.findOne({ where: { id } });
+        if (!location) throw new NotFoundException('Location not found');
+        location.status = status;
+        return this.locationRepository.save(location);
     }
 
     async findMyLocations(userId: string) {
