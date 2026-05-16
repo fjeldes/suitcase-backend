@@ -371,7 +371,7 @@ export class AuthService {
         }
 
         this.mailService.sendVerificationEmail(email, otpCode).catch(e => console.error(e));
-        return { message: 'Verification code sent' };
+        return { message: 'Verification code sent', code: process.env.NODE_ENV !== 'production' ? otpCode : undefined };
     }
 
     async forgotPassword(email: string) {
