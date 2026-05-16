@@ -117,12 +117,6 @@ export class LocationsController {
         return this.locationsService.remove(id, req.user.userId)
     }
 
-    // 🔓 Público (detalle)
-    @Get(':id')
-    findOne(@Param('id') id: string) {
-        return this.locationsService.findOne(id)
-    }
-
     // 🔐 Admin: listar todas las locaciones
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('admin')
@@ -148,5 +142,11 @@ export class LocationsController {
         @Body() body: { status: 'pending' | 'active' | 'rejected' },
     ) {
         return this.locationsService.updateStatus(id, body.status);
+    }
+
+    // 🔓 Público (detalle)
+    @Get(':id')
+    findOne(@Param('id') id: string) {
+        return this.locationsService.findOne(id)
     }
 }
