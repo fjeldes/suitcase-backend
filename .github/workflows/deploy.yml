@@ -54,7 +54,7 @@ jobs:
         run: |
           ENV_SUFFIX="${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"
           TAG="${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/kipgo-api:${{ github.sha }}"
-          LATEST_TAG="${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/kipgo-api:${{ env.ENV_SUFFIX }}-latest"
+          LATEST_TAG="${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/kipgo-api:${ENV_SUFFIX}-latest"
           docker build -t $TAG -t $LATEST_TAG .
           docker push $TAG
           docker push $LATEST_TAG
