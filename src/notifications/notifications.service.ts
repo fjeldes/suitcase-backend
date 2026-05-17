@@ -95,6 +95,14 @@ export class NotificationsService {
         });
     }
 
+    async markAsRead(id: string, userId: string) {
+        return this.notificationRepository.update({ id, userId }, { isRead: true });
+    }
+
+    async markAllAsRead(userId: string) {
+        return this.notificationRepository.update({ userId, isRead: false }, { isRead: true });
+    }
+
     async notifyCheckIn(userId: string, bookingId: string, locationName: string) {
         const notification = await this.notificationRepository.save(
             this.notificationRepository.create({
