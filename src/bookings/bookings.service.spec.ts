@@ -21,6 +21,7 @@ import { Transaction } from 'src/transactions/entities/transaction.entity'
 import { NotificationsService } from 'src/notifications/notifications.service'
 import { ActivityLogsService } from 'src/activity-logs/activity-logs.service'
 import { PaymentsService } from 'src/payments/payments.service'
+import { PromosService } from 'src/promos/promos.service'
 
 describe('BookingsService', () => {
   let service: BookingsService
@@ -129,6 +130,7 @@ describe('BookingsService', () => {
         { provide: NotificationsService, useValue: notificationsService },
         { provide: ActivityLogsService, useValue: activityLogsService },
         { provide: PaymentsService, useValue: paymentsService },
+        { provide: PromosService, useValue: { validate: jest.fn(), incrementUses: jest.fn() } },
       ],
     }).compile()
 
