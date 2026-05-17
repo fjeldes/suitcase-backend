@@ -754,8 +754,15 @@ export class BookingsService {
     private validateLocationSchedule(location: Location, start: Date, end: Date) {
         if (!location.workingHours || !Array.isArray(location.workingHours)) return;
 
+        const CLT_OFFSET = -4 * 60; // Chile UTC-4 en minutos
+        const toLocalMinutes = (date: Date) => {
+            const utcMinutes = date.getUTCHours() * 60 + date.getUTCMinutes();
+            const localMinutes = utcMinutes + CLT_OFFSET;
+            return ((localMinutes % 1440) + 1440) % 1440; // wrap to 0-1439
+        };
+
         const checkTime = (date: Date, isStart: boolean) => {
-            const dayOfWeek = date.getDay(); // 0 = Domingo, 1 = Lunes...
+            const dayOfWeek = date.getUTCDay();
             const dayConfig = location.workingHours.find((h: any) => h.day === dayOfWeek);
 
             if (!dayConfig) return;
@@ -766,20 +773,21 @@ export class BookingsService {
                 );
             }
 
-            // Convertir "HH:mm" a minutos para comparar fácilmente
             const timeToMinutes = (timeStr: string) => {
                 const [hrs, mins] = timeStr.split(':').map(Number);
                 return hrs * 60 + mins;
             };
 
-            const currentMinutes = date.getHours() * 60 + date.getMinutes();
+            const currentMinutes = toLocalMinutes(date);
             const openMinutes = timeToMinutes(dayConfig.open);
             const closeMinutes = timeToMinutes(dayConfig.close);
 
             if (currentMinutes < openMinutes || currentMinutes > closeMinutes) {
                 const type = isStart ? 'Drop-off' : 'Collection';
+                const localHrs = Math.floor(currentMinutes / 60);
+                const localMins = currentMinutes % 60;
                 throw new BadRequestException(
-                    `${type} time (${date.getHours()}:${date.getMinutes()}) is outside store hours (${dayConfig.open} - ${dayConfig.close}).`
+                    `${type} time (${localHrs}:${String(localMins).padStart(2, '0')}) is outside store hours (${dayConfig.open} - ${dayConfig.close}).`
                 );
             }
         };
