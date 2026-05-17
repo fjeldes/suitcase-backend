@@ -89,6 +89,7 @@ describe('AuthService', () => {
     mailService = {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
       sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
+      sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
     } as any
 
     const termsService = {
@@ -249,9 +250,12 @@ describe('AuthService', () => {
       const user = { ...mockUser, isEmailVerified: false }
       usersService.findByEmail.mockResolvedValue(user)
       usersService.update.mockResolvedValue(user)
+      const originalNodeEnv = process.env.NODE_ENV
+      process.env.NODE_ENV = 'production'
 
       const result = await service.resendVerificationCode('test@example.com')
       expect(result).toEqual({ message: 'Verification code sent' })
+      process.env.NODE_ENV = originalNodeEnv
       expect(usersService.update).toHaveBeenCalledWith('user-1', expect.objectContaining({ otpCode: expect.any(String) }))
       expect(mailService.sendVerificationEmail).toHaveBeenCalled()
     })

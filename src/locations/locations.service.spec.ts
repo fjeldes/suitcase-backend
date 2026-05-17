@@ -8,6 +8,8 @@ import { Location } from './entities/location.entity'
 import { LocationOwner } from './entities/location-owner.entity'
 import { User } from 'src/users/entities/user.entity'
 import { Booking } from 'src/bookings/entities/booking.entity'
+import { NotificationsService } from 'src/notifications/notifications.service'
+import { MailService } from 'src/mail/mail.service'
 
 describe('LocationsService', () => {
   let service: LocationsService
@@ -62,6 +64,9 @@ describe('LocationsService', () => {
       createQueryBuilder: jest.fn(),
     } as any
 
+    const notificationsService = {} as NotificationsService
+    const mailService = {} as MailService
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LocationsService,
@@ -69,6 +74,8 @@ describe('LocationsService', () => {
         { provide: getRepositoryToken(LocationOwner), useValue: locationOwnerRepository },
         { provide: getRepositoryToken(User), useValue: userRepository },
         { provide: getRepositoryToken(Booking), useValue: bookingRepository },
+        { provide: NotificationsService, useValue: notificationsService },
+        { provide: MailService, useValue: mailService },
       ],
     }).compile()
 
@@ -137,13 +144,16 @@ describe('LocationsService', () => {
 
   describe('findOne', () => {
     it('returns location with availability', async () => {
-      locationRepository.findOne.mockResolvedValue({
-        ...mockLocation,
-        bookings: [
-          { status: 'in_storage', items: { small: 2, medium: 1, large: 0 } },
-          { status: 'confirmed', items: { small: 1, medium: 0, large: 0 } },
-        ],
-      } as any)
+      locationRepository.findOne.mockResolvedValue(mockLocation as any)
+
+      const queryBuilder = {
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ small: 3, medium: 1, large: 0 }),
+      }
+      bookingRepository.createQueryBuilder.mockReturnValue(queryBuilder as any)
 
       const result = await service.findOne('loc-1')
       expect(result).toBeDefined()
