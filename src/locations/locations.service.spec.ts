@@ -8,6 +8,7 @@ import { Location } from './entities/location.entity'
 import { LocationOwner } from './entities/location-owner.entity'
 import { User } from 'src/users/entities/user.entity'
 import { Booking } from 'src/bookings/entities/booking.entity'
+import { Review } from 'src/reviews/entities/review.entity'
 import { NotificationsService } from 'src/notifications/notifications.service'
 import { MailService } from 'src/mail/mail.service'
 
@@ -17,6 +18,7 @@ describe('LocationsService', () => {
   let locationOwnerRepository: jest.Mocked<Repository<LocationOwner>>
   let userRepository: jest.Mocked<Repository<User>>
   let bookingRepository: jest.Mocked<Repository<Booking>>
+  let reviewRepository: jest.Mocked<Repository<Review>>
 
   const mockLocation = {
     id: 'loc-1',
@@ -64,6 +66,14 @@ describe('LocationsService', () => {
       createQueryBuilder: jest.fn(),
     } as any
 
+    reviewRepository = {
+      createQueryBuilder: jest.fn(() => ({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ avg: null }),
+      })),
+    } as any
+
     const notificationsService = {} as NotificationsService
     const mailService = {} as MailService
 
@@ -74,6 +84,7 @@ describe('LocationsService', () => {
         { provide: getRepositoryToken(LocationOwner), useValue: locationOwnerRepository },
         { provide: getRepositoryToken(User), useValue: userRepository },
         { provide: getRepositoryToken(Booking), useValue: bookingRepository },
+        { provide: getRepositoryToken(Review), useValue: reviewRepository },
         { provide: NotificationsService, useValue: notificationsService },
         { provide: MailService, useValue: mailService },
       ],
