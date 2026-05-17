@@ -10,6 +10,7 @@ import { Location } from './entities/location.entity'
 import { LocationOwner } from './entities/location-owner.entity'
 import { User } from 'src/users/entities/user.entity'
 import { Booking } from 'src/bookings/entities/booking.entity'
+import { Review } from 'src/reviews/entities/review.entity'
 import { NotificationsService } from 'src/notifications/notifications.service'
 import { MailService } from 'src/mail/mail.service'
 
@@ -33,6 +34,9 @@ export class LocationsService {
 
         @InjectRepository(Booking)
         private bookingRepository: Repository<Booking>,
+
+        @InjectRepository(Review)
+        private reviewRepository: Repository<Review>,
 
         private readonly notificationsService: NotificationsService,
         private readonly mailService: MailService,
@@ -248,10 +252,18 @@ export class LocationsService {
                         large: 0,
                     }
 
+                const avgRatingResult = await this.reviewRepository
+                    .createQueryBuilder('review')
+                    .select('AVG(review.rating)', 'avg')
+                    .where('review.locationId = :locationId', { locationId: loc.id })
+                    .getRawOne()
+                const averageRating = avgRatingResult?.avg ? Math.round(parseFloat(avgRatingResult.avg) * 10) / 10 : null
+
                 return {
                     ...loc,
                     distance,
                     availability,
+                    averageRating,
                 }
             }),
         )
