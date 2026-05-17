@@ -90,4 +90,10 @@ export class Booking extends BaseEntity {
 
   @Column({ type: 'json', nullable: true, default: null })
   checkInPhotos: string[] | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true, default: null })
+  promoCode: string | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  discountAmount: number;
 }

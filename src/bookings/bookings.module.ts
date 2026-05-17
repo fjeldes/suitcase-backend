@@ -10,6 +10,7 @@ import { ActivityLogsModule } from 'src/activity-logs/activity-logs.module';
 import { User } from 'src/users/entities/user.entity';
 import { PaymentsModule } from 'src/payments/payments.module';
 import { TransactionsModule } from 'src/transactions/transactions.module';
+import { PromosModule } from 'src/promos/promos.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([
@@ -17,7 +18,8 @@ import { TransactionsModule } from 'src/transactions/transactions.module';
     NotificationsModule,
     PaymentsModule,
     ActivityLogsModule,
-    TransactionsModule
+    TransactionsModule,
+    PromosModule
   ],
   providers: [BookingsService],
   controllers: [BookingsController]

@@ -17,6 +17,7 @@ import { UpdateBookingDto } from './dto/update-booking.dto'
 import { Booking } from './entities/booking.entity'
 import { User } from 'src/users/entities/user.entity'
 import { PaymentsService } from 'src/payments/payments.service'
+import { PromosService } from 'src/promos/promos.service'
 import Stripe from 'stripe'
 import { BookingCalculator } from './logic/booking.calculator'
 import { PaymentMethod, Transaction, TransactionStatus } from 'src/transactions/entities/transaction.entity'
@@ -47,6 +48,7 @@ export class BookingsService {
         private readonly notificationsService: NotificationsService,
         private readonly activityLogsService: ActivityLogsService,
         private readonly paymentsService: PaymentsService,
+        private readonly promosService: PromosService,
     ) {
         this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
             apiVersion: '2023-10-16' as any,
@@ -92,12 +94,23 @@ export class BookingsService {
         const rawTotalPrice = BookingCalculator.calculatePrice(location.pricePerDay, items, days);
 
         // Formateamos el precio según la moneda (ej: CLP sin decimales)
-        const totalPrice = BookingCalculator.formatByCurrency(rawTotalPrice, currency.toUpperCase());
+        let totalPrice = BookingCalculator.formatByCurrency(rawTotalPrice, currency.toUpperCase());
+
+        // --- 4. APLICAR CÓDIGO PROMOCIONAL ---
+        let discountAmount = 0;
+        if (dto.promoCode) {
+          const validation = await this.promosService.validate({
+            code: dto.promoCode,
+            bookingAmount: totalPrice,
+          });
+          discountAmount = validation.discountAmount;
+          totalPrice = Math.max(0, totalPrice - discountAmount);
+        }
 
         // Generar el desglose financiero
         const financials = BookingCalculator.calculateFinancials(totalPrice);
 
-        // --- 4. PROCESO DE PAGO ---
+        // --- 5. PROCESO DE PAGO ---
         let providerTransactionId: string | undefined = undefined;
 
         if (totalPrice > 0) {
@@ -141,7 +154,7 @@ export class BookingsService {
             }
         }
 
-        // 5. Crear y Guardar la reserva
+        // 6. Crear y Guardar la reserva
         const newBooking = this.bookingRepository.create({
             startDate: start,
             endDate: end,
@@ -150,13 +163,20 @@ export class BookingsService {
             status: 'confirmed',
             items,
             declaredValue: dto.declaredValue ?? null,
+            promoCode: dto.promoCode?.toUpperCase() ?? null,
+            discountAmount,
             user: { id: userId },
             location: { id: locationId },
         });
 
         const savedBooking = await this.bookingRepository.save(newBooking);
 
-        // 6. Guardar Transacción con Moneda
+        // Incrementar uso del código promocional
+        if (dto.promoCode) {
+          this.promosService.incrementUses(dto.promoCode).catch(() => {});
+        }
+
+        // 7. Guardar Transacción con Moneda
         await this.transactionRepository.save({
             totalAmount: financials.totalAmount,
             taxAmount: financials.taxAmount,

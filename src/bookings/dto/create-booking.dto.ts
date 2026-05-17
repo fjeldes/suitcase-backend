@@ -4,6 +4,7 @@ import {
   IsObject,
   IsOptional,
   IsInt,
+  IsString,
   Min,
 } from 'class-validator'
 import { Type } from 'class-transformer'
@@ -45,4 +46,8 @@ export class CreateBookingDto {
   @IsInt()
   @Min(0)
   declaredValue?: number
+
+  @IsOptional()
+  @IsString()
+  promoCode?: string
 }

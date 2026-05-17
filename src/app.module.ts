@@ -30,6 +30,7 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { FinancialsModule } from './financials/financials.module';
 import { ClaimsModule } from './claims/claims.module';
 import { ErrorLogsModule } from './error-logs/error-logs.module';
+import { PromosModule } from './promos/promos.module';
 
 @Module({
   imports: [
@@ -89,6 +90,7 @@ import { ErrorLogsModule } from './error-logs/error-logs.module';
     WebhooksModule,
     FinancialsModule,
     ClaimsModule,
+    PromosModule,
     ErrorLogsModule,
   ],
   providers: [
