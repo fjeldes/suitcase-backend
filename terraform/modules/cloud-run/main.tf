@@ -97,6 +97,12 @@ resource "google_cloud_run_service" "api" {
           value = var.db_name
         }
 
+        # ─── CORS ─────────────────────────────────────────────────────────
+        env {
+          name  = "CORS_ORIGIN"
+          value = var.cors_origin
+        }
+
         # ─── Redis ────────────────────────────────────────────────────────
         env {
           name  = "REDIS_HOST"

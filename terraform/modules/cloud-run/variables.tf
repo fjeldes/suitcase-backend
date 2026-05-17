@@ -91,6 +91,12 @@ variable "cpu_limit" {
   default     = "1"
 }
 
+variable "cors_origin" {
+  description = "Orígenes CORS permitidos (separados por coma)."
+  type        = string
+  default     = "http://localhost:3000"
+}
+
 variable "memory_limit" {
   description = "RAM por instancia. '512Mi', '1Gi', '2Gi', etc."
   type        = string

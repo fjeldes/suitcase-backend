@@ -145,6 +145,7 @@ module "cloud_run" {
   storage_bucket_name   = module.storage.bucket_name
   image_url             = var.image_url
   service_account_email = var.service_account_email
+  cors_origin           = "https://www.kipgo.app,https://api.dev.kipgo.app,http://localhost:3000"
   min_instances         = 0
   max_instances         = 2
   cpu_limit             = "1"
