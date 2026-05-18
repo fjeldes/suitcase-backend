@@ -31,8 +31,8 @@ export class StorageController {
       throw new BadRequestException(`Invalid file type: ${file.mimetype}. Allowed: ${allowedMimeTypes.join(', ')}`);
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      throw new BadRequestException('File too large. Maximum size is 10MB');
+    if (file.size > 5 * 1024 * 1024) {
+      throw new BadRequestException('File too large. Maximum size is 5MB');
     }
 
     const url = await this.storageService.uploadImage(file, folder);
