@@ -42,7 +42,7 @@ describe('BookingsService', () => {
     country: 'Chile',
     currency: 'CLP',
     capacity: { small: 10, medium: 5, large: 3 },
-    pricePerDay: { small: 5, medium: 8, large: 12 },
+    pricePerDay: { small: 5000, medium: 8000, large: 12000 },
     isActive: true,
     workingHours: [
       { day: 1, label: 'Monday', open: '09:00', close: '18:00', isClosed: false },
@@ -60,9 +60,9 @@ describe('BookingsService', () => {
   const mockBooking = {
     id: 'booking-1',
     qrCode: 'STC-ABC123',
-    startDate: new Date('2025-06-01T10:00:00'),
-    endDate: new Date('2025-06-02T10:00:00'),
-    totalPrice: 5000,
+    startDate: new Date('2025-06-02T13:00:00Z'),
+    endDate: new Date('2025-06-03T21:00:00Z'),
+    totalPrice: 5750,
     days: 1,
     status: 'confirmed',
     items: { small: 1, medium: 0, large: 0 },
@@ -140,8 +140,8 @@ describe('BookingsService', () => {
   describe('create', () => {
     const dto = {
       locationId: 'loc-1',
-      startDate: '2025-06-01T10:00:00',
-      endDate: '2025-06-02T10:00:00',
+      startDate: '2025-06-02T13:00:00Z',   // 09:00 Chile (UTC-4)
+      endDate: '2025-06-03T21:00:00Z',     // 17:00 Chile
       items: { small: 1, medium: 0, large: 0 },
     }
 
