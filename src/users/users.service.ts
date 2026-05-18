@@ -46,7 +46,7 @@ export class UsersService implements OnModuleInit {
             }
         }
 
-        if (process.env.NODE_ENV !== 'production') {
+        if (process.env.NODE_ENV !== 'production' && process.env.SEED_ADMIN === 'true') {
             const adminEmail = 'admin@example.com';
             const existingAdmin = await this.userRepository.findOne({ where: { email: adminEmail } });
             if (!existingAdmin) {

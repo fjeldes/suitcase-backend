@@ -1,5 +1,4 @@
 import { Controller, Post, Body, Headers, BadRequestException, Logger } from '@nestjs/common';
-import { SkipThrottle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -7,7 +6,6 @@ import { Booking } from 'src/bookings/entities/booking.entity';
 import { Transaction, TransactionStatus } from 'src/transactions/entities/transaction.entity';
 
 @Controller('webhooks')
-@SkipThrottle()
 export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
   private stripe: any;
@@ -28,8 +26,8 @@ export class WebhooksController {
   ) {
     const webhookSecret = this.configService.get('STRIPE_WEBHOOK_SECRET');
     if (!webhookSecret) {
-      this.logger.warn('STRIPE_WEBHOOK_SECRET not configured — skipping webhook validation');
-      return { received: true };
+      this.logger.error('STRIPE_WEBHOOK_SECRET not configured — webhook validation disabled');
+      throw new BadRequestException('Webhook secret not configured');
     }
 
     let event: any;

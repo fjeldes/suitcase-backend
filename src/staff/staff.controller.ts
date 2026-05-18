@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt/jwt.guard';
 import { StaffService } from './staff.service';
 
@@ -12,6 +13,7 @@ export class StaffController {
     return this.staffService.invite(req.user.userId, body.locationId, body.name, body.email);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
   @Get('accept')
   async acceptInvitation(@Query('token') token: string, @Query('userId') userId?: string) {
     return this.staffService.acceptInvitation(token, userId);

@@ -27,6 +27,7 @@ export class AuthController {
     return this.authService.login(body.email, body.password);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('refresh')
   async refresh(@Body() body: { refresh_token: string }) {
     if (!body.refresh_token) {
@@ -39,6 +40,7 @@ export class AuthController {
    * Convierte un cliente en owner asignando el rol 'owner' a su cuenta.
    * Es idempotente: si ya tiene el rol, no falla.
    */
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
   @Post('become-owner')
   @UseGuards(JwtAuthGuard)
   async becomeOwner(@Req() req: any) {
@@ -58,9 +60,10 @@ export class AuthController {
   }
 
   @Throttle({ default: { ttl: 120000, limit: 1 } })
+  @UseGuards(JwtAuthGuard)
   @Post('change-email')
-  async changeEmail(@Body() body: { oldEmail: string; newEmail: string }) {
-    return this.authService.changeEmail(body.oldEmail, body.newEmail);
+  async changeEmail(@Req() req: any, @Body() body: { newEmail: string }) {
+    return this.authService.changeEmail(req.user.userId, body.newEmail);
   }
 
   @Throttle({ default: { ttl: 60000, limit: 3 } })

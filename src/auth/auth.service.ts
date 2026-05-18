@@ -374,8 +374,8 @@ export class AuthService {
         return { message: 'Verification code sent', code: process.env.NODE_ENV !== 'production' ? otpCode : undefined };
     }
 
-    async changeEmail(oldEmail: string, newEmail: string) {
-        const user = await this.usersService.findByEmail(oldEmail);
+    async changeEmail(userId: string, newEmail: string) {
+        const user = await this.usersService.findOne(userId);
         if (!user) throw new UnauthorizedException('User not found');
         if (user.isEmailVerified) return { message: 'Email already verified' };
 

@@ -18,6 +18,7 @@ import { JwtAuthGuard } from 'src/auth/jwt/jwt.guard'
 import { RolesGuard } from 'src/auth/guards/roles.guards'
 import { Roles } from 'src/auth/decorators/roles.decorator'
 import { UpdateLocationDto } from './dto/update-location.dto';
+import { CreateLocationDto } from './dto/create-location.dto';
 import { StaffAssignment } from 'src/staff/entities/staff-assignment.entity';
 
 @Controller('locations')
@@ -84,10 +85,9 @@ export class LocationsController {
         );
     }
 
-    // 🔐 Crear location (con owner)
     @UseGuards(JwtAuthGuard)
     @Post()
-    create(@Body() body: any, @Req() req: any) {
+    create(@Body() body: CreateLocationDto, @Req() req: any) {
         return this.locationsService.create(body, req.user.userId)
     }
 
