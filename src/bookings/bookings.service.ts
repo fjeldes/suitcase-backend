@@ -820,6 +820,8 @@ export class BookingsService {
             startDate: booking.startDate,
             endDate: booking.endDate,
             totalPrice: booking.totalPrice,
+            promoCode: booking.promoCode,
+            discountAmount: booking.discountAmount,
             totalItems: totalItemsCount,
             items: booking.items,
             checkedInAt: booking.checkedInAt,
