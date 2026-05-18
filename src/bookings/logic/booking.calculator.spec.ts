@@ -54,26 +54,38 @@ describe('BookingCalculator', () => {
   })
 
   describe('calculateFinancials', () => {
-    it('calculates IVA, service fee, and owner net correctly', () => {
-      const result = BookingCalculator.calculateFinancials(100)
-      expect(result.totalAmount).toBe(100)
-      expect(result.taxAmount).toBeCloseTo(15.97, 1)
-      expect(result.serviceFee).toBeCloseTo(12.61, 1)
-      expect(result.ownerNet).toBeCloseTo(71.42, 1)
+    it('calculates breakdown correctly for owner price 5000', () => {
+      const r = BookingCalculator.calculateFinancials(5000)
+      expect(r.ownerPrice).toBe(5000)
+      expect(r.travelerFee).toBe(750)          // 5000 * 0.15
+      expect(r.subtotal).toBe(5750)             // 5000 + 750
+      expect(r.vatIncluded).toBeCloseTo(918, 0) // 5750 * 0.19 / 1.19 ≈ 918
+      expect(r.totalToPay).toBe(5750)           // = subtotal
+      expect(r.ownerFee).toBe(900)              // 5000 * 0.18
+      expect(r.ownerNet).toBe(4100)             // 5000 - 900
+      expect(r.kipGoGross).toBe(1650)           // 750 + 900
     })
 
     it('handles zero amount', () => {
-      const result = BookingCalculator.calculateFinancials(0)
-      expect(result.totalAmount).toBe(0)
-      expect(result.taxAmount).toBe(0)
-      expect(result.serviceFee).toBe(0)
-      expect(result.ownerNet).toBe(0)
+      const r = BookingCalculator.calculateFinancials(0)
+      expect(r.ownerPrice).toBe(0)
+      expect(r.travelerFee).toBe(0)
+      expect(r.subtotal).toBe(0)
+      expect(r.vatIncluded).toBe(0)
+      expect(r.totalToPay).toBe(0)
+      expect(r.ownerFee).toBe(0)
+      expect(r.ownerNet).toBe(0)
+      expect(r.kipGoGross).toBe(0)
     })
 
-    it('sum of parts equals total (approximately)', () => {
-      const result = BookingCalculator.calculateFinancials(119)
-      const sum = result.taxAmount + result.serviceFee + result.ownerNet
-      expect(Math.abs(sum - result.totalAmount)).toBeLessThan(0.1)
+    it('subtotal = totalToPay (VAT is included, not added)', () => {
+      const r = BookingCalculator.calculateFinancials(5000)
+      expect(r.subtotal).toBe(r.totalToPay)
+    })
+
+    it('ownerNet + ownerFee = ownerPrice', () => {
+      const r = BookingCalculator.calculateFinancials(5000)
+      expect(r.ownerNet + r.ownerFee).toBe(r.ownerPrice)
     })
   })
 

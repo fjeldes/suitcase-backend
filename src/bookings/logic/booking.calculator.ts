@@ -1,75 +1,64 @@
 // src/bookings/logic/booking.calculator.ts
 
 export const BookingCalculator = {
-    // --- Configuración de negocio ---
-    IVA_PERCENT: 0.19,         // 19% IVA (Chile)
-    SERVICE_FEE_PERCENT: 0.15,  // 15% Comisión de la App
+    IVA_PERCENT: 0.19,
+    OWNER_FEE_PERCENT: 0.18,   // 18% comisión al owner
+    TRAVELER_FEE_PERCENT: 0.15, // 15% fee al viajero (agregado al precio)
     GRACE_PERIOD_MS: 30 * 60 * 1000,
     ONE_DAY_MS: 24 * 60 * 60 * 1000,
 
-    /**
-     * 1. Calcula la cantidad de días a cobrar.
-     */
-    calculateDays(start: Date, end: Date): number {
-        const diffMs = end.getTime() - start.getTime();
-
-        if (diffMs <= this.ONE_DAY_MS + this.GRACE_PERIOD_MS) {
-            return 1;
-        }
-
-        const effectiveMs = diffMs - this.GRACE_PERIOD_MS;
-        return Math.ceil(effectiveMs / this.ONE_DAY_MS);
+    MIN_PRICES: {
+        small: 3500,
+        medium: 5000,
+        large: 7000,
     },
 
-    /**
-     * 2. Calcula el precio total (PVP) que verá el cliente.
-     */
+    calculateDays(start: Date, end: Date): number {
+        const diffMs = end.getTime() - start.getTime();
+        if (diffMs <= this.ONE_DAY_MS + this.GRACE_PERIOD_MS) return 1;
+        return Math.ceil((diffMs - this.GRACE_PERIOD_MS) / this.ONE_DAY_MS);
+    },
+
     calculatePrice(
         prices: { small: number; medium: number; large: number },
         items: { small: number; medium: number; large: number },
         days: number,
     ): number {
         const { small = 0, medium = 0, large = 0 } = items;
-
         const dailyRate =
             small * Number(prices.small) +
             medium * Number(prices.medium) +
             large * Number(prices.large);
-
-        const total = dailyRate * days;
-
-        return this.round(total);
+        return this.round(dailyRate * days);
     },
 
-    /**
-     * 3. Desglosa el pago total en IVA, Comisión y Neto para el Owner.
-     */
-    calculateFinancials(totalPrice: number) {
-        const baseImponible = this.round(totalPrice / (1 + this.IVA_PERCENT));
-        const taxAmount = this.round(totalPrice - baseImponible);
-        const serviceFee = this.round(baseImponible * this.SERVICE_FEE_PERCENT);
-        const ownerNet = this.round(baseImponible - serviceFee);
+    calculateFinancials(ownerPrice: number) {
+        const travelerFee = this.round(ownerPrice * this.TRAVELER_FEE_PERCENT);
+        const subtotal = this.round(ownerPrice + travelerFee);
+        const vatIncluded = this.round(subtotal * this.IVA_PERCENT / (1 + this.IVA_PERCENT));
+        const totalToPay = subtotal;
+        const ownerFee = this.round(ownerPrice * this.OWNER_FEE_PERCENT);
+        const ownerNet = this.round(ownerPrice - ownerFee);
+        const kipGoGross = this.round(travelerFee + ownerFee);
 
         return {
-            totalAmount: totalPrice,
-            taxAmount,
-            serviceFee,
+            ownerPrice,
+            travelerFee,
+            subtotal,
+            vatIncluded,
+            totalToPay,
+            ownerFee,
             ownerNet,
+            kipGoGross,
         };
     },
 
-    /**
-     * Utility para evitar errores de precisión de punto flotante.
-     * (Nota: Quitamos 'private' porque es un objeto, no una clase)
-     */
     round(value: number): number {
         return Math.round((value + Number.EPSILON) * 100) / 100;
     },
 
     formatByCurrency(amount: number, currency: string): number {
-        if (currency === 'CLP') {
-            return Math.round(amount); // En Chile siempre redondeamos al entero
-        }
-        return Number(amount.toFixed(2)); // Para el resto, 2 decimales
+        if (currency === 'CLP') return Math.round(amount);
+        return Number(amount.toFixed(2));
     }
 };

@@ -93,22 +93,24 @@ export class BookingsService {
         const days = BookingCalculator.calculateDays(start, end);
         const rawTotalPrice = BookingCalculator.calculatePrice(location.pricePerDay, items, days);
 
-        // Formateamos el precio según la moneda (ej: CLP sin decimales)
-        let totalPrice = BookingCalculator.formatByCurrency(rawTotalPrice, currency.toUpperCase());
+        // Formateamos el precio del owner (ej: CLP sin decimales)
+        const ownerPrice = BookingCalculator.formatByCurrency(rawTotalPrice, currency.toUpperCase());
 
         // --- 4. APLICAR CÓDIGO PROMOCIONAL ---
         let discountAmount = 0;
+        let discountedOwnerPrice = ownerPrice;
         if (dto.promoCode) {
           const validation = await this.promosService.validate({
             code: dto.promoCode,
-            bookingAmount: totalPrice,
+            bookingAmount: ownerPrice,
           });
           discountAmount = validation.discountAmount;
-          totalPrice = Math.max(0, totalPrice - discountAmount);
+          discountedOwnerPrice = Math.max(0, ownerPrice - discountAmount);
         }
 
-        // Generar el desglose financiero
-        const financials = BookingCalculator.calculateFinancials(totalPrice);
+        // Generar el desglose financiero completo (ownerPrice + travelerFee + IVA)
+        const financials = BookingCalculator.calculateFinancials(discountedOwnerPrice);
+        const totalPrice = financials.totalToPay; // total que paga el viajero
 
         // --- 5. PROCESO DE PAGO ---
         let providerTransactionId: string | undefined = undefined;
@@ -178,9 +180,9 @@ export class BookingsService {
 
         // 7. Guardar Transacción con Moneda
         await this.transactionRepository.save({
-            totalAmount: financials.totalAmount,
-            taxAmount: financials.taxAmount,
-            serviceFee: financials.serviceFee,
+            totalAmount: financials.totalToPay,
+            taxAmount: financials.vatIncluded,
+            serviceFee: financials.kipGoGross,
             ownerNet: financials.ownerNet,
             currency: currency.toUpperCase(),
             status: TransactionStatus.SUCCEEDED,

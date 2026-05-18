@@ -47,6 +47,14 @@ export class LocationsService {
         const user = await this.userRepository.findOneBy({ id: userId as any });
         if (!user) throw new NotFoundException('User not found');
 
+        const { MIN_PRICES } = require('../bookings/logic/booking.calculator').BookingCalculator;
+        const smallPrice = parseFloat(body.smallPrice || '0');
+        const mediumPrice = parseFloat(body.mediumPrice || '0');
+        const largePrice = parseFloat(body.largePrice || '0');
+        if (smallPrice < MIN_PRICES.small) throw new BadRequestException(`Small bag minimum price is $${MIN_PRICES.small}`);
+        if (mediumPrice < MIN_PRICES.medium) throw new BadRequestException(`Medium bag minimum price is $${MIN_PRICES.medium}`);
+        if (largePrice < MIN_PRICES.large) throw new BadRequestException(`Large bag minimum price is $${MIN_PRICES.large}`);
+
         // 1. Transformamos el objeto plano del Front al formato de la Entidad
         const locationData = {
             name: body.name,
