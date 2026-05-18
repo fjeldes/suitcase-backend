@@ -553,9 +553,9 @@ export class BookingsService {
 
         const tx = await this.transactionRepository.save({
             type: 'extension' as any,
-            totalAmount: financials.totalAmount,
-            taxAmount: financials.taxAmount,
-            serviceFee: financials.serviceFee,
+            totalAmount: financials.totalToPay,
+            taxAmount: financials.vatIncluded,
+            serviceFee: financials.kipGoGross,
             ownerNet: financials.ownerNet,
             currency: 'CLP',
             status: intent.status === 'succeeded' ? TransactionStatus.SUCCEEDED : TransactionStatus.PENDING,
@@ -565,7 +565,7 @@ export class BookingsService {
             description: `Extra charge for ${extraDays} additional day(s)`,
         });
 
-        return { extraDays, extraAmount: financials.totalAmount, transaction: tx };
+        return { extraDays, extraAmount: financials.totalToPay, transaction: tx };
     }
 
     async processQr(qrCode: string, ownerId: string) {
