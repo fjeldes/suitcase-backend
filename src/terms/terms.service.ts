@@ -41,7 +41,8 @@ KipGo SpA, sociedad constituida bajo las leyes de la República de Chile, RUT pe
 6.2. Todos los precios se muestran en pesos chilenos (CLP) e incluyen el Impuesto al Valor Agregado (IVA) cuando corresponda, de conformidad con la legislación tributaria chilena.
 6.3. El pago se procesa al momento de la reserva a través de Stripe, Inc., procesador de pagos internacional que cumple con los estándares PCI-DSS.
 6.4. KipGo emitirá y enviará un comprobante electrónico o boleta por cada transacción realizada, conforme a las normas del Servicio de Impuestos Internos (SII).
-6.5. Las extensiones de tiempo están sujetas a disponibilidad del Anfitrión y generarán cargos adicionales proporcionales al tiempo extendido.
+6.5. Al precio publicado por el Anfitrión se le agrega una tarifa de servicio del 15% que KipGo cobra al Usuario por el uso de la Plataforma. El total a pagar por el Usuario incluye esta tarifa y el IVA correspondiente, tal como se muestra en el desglose de precios antes de confirmar la reserva.
+6.6. Las extensiones de tiempo están sujetas a disponibilidad del Anfitrión y generarán cargos adicionales proporcionales al tiempo extendido.
 
 7. POLÍTICA DE CANCELACIONES Y REEMBOLSOS
 7.1. Cancelaciones realizadas antes del check-in: reembolso completo del monto pagado, sin descuentos ni penalizaciones.
@@ -151,7 +152,7 @@ Los términos definidos en la sección 3 de los Términos y Condiciones de Usuar
 2.7. Mantener actualizada la disponibilidad de su local en tiempo real.
 
 3. COMISIONES Y PAGOS
-3.1. KipGo cobrará una comisión del [15%] sobre el valor total de cada reserva completada. Este porcentaje podrá ser modificado con aviso previo de 30 días.
+3.1. KipGo cobrará una comisión del 18% sobre el precio publicado por el Anfitrión por cada reserva completada. Este porcentaje podrá ser modificado con aviso previo de 30 días.
 3.2. Los pagos se procesarán dentro de los 2 días hábiles posteriores al check-out exitoso.
 3.3. Los pagos se realizan a través de Stripe Connect a la cuenta bancaria registrada por el Anfitrión. El Anfitrión es responsable de mantener sus datos bancarios actualizados.
 3.4. El Anfitrión es responsable del cumplimiento de todas sus obligaciones tributarias derivadas de los ingresos generados a través de la Plataforma, incluyendo el impuesto de primera categoría, IVA, pagos provisionales mensuales y cualquier otro impuesto aplicable según la legislación chilena.
