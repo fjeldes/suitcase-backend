@@ -31,7 +31,7 @@ describe('LocationsService', () => {
     country: 'Chile',
     currency: 'CLP',
     capacity: { small: 10, medium: 5, large: 3 },
-    pricePerDay: { small: 5, medium: 8, large: 12 },
+    pricePerDay: { small: 5000, medium: 8000, large: 12000 },
     isActive: true,
     imageUrl: null,
     workingHours: null,
@@ -102,9 +102,9 @@ describe('LocationsService', () => {
       smallCapacity: '5',
       mediumCapacity: '3',
       largeCapacity: '2',
-      smallPrice: '6',
-      mediumPrice: '10',
-      largePrice: '15',
+      smallPrice: '5000',
+      mediumPrice: '8000',
+      largePrice: '12000',
       description: 'A new store',
     }
 
