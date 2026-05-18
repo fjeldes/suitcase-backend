@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Promo } from './entities/promo.entity';
+import { PromoUsage } from './entities/promo-usage.entity';
 import { ValidatePromoDto } from './dto/validate-promo.dto';
 import { CreatePromoDto } from './dto/create-promo.dto';
 
@@ -10,6 +11,8 @@ export class PromosService {
   constructor(
     @InjectRepository(Promo)
     private readonly promoRepository: Repository<Promo>,
+    @InjectRepository(PromoUsage)
+    private readonly usageRepository: Repository<PromoUsage>,
   ) {}
 
   async create(dto: CreatePromoDto): Promise<Promo> {
@@ -29,7 +32,7 @@ export class PromosService {
     return this.promoRepository.save(promo);
   }
 
-  async validate(dto: ValidatePromoDto): Promise<{ valid: boolean; discountAmount: number; promo: Partial<Promo> }> {
+  async validate(dto: ValidatePromoDto, userId?: string): Promise<{ valid: boolean; discountAmount: number; promo: Partial<Promo> }> {
     const promo = await this.promoRepository.findOne({ where: { code: dto.code.toUpperCase() } });
 
     if (!promo) throw new NotFoundException('Código promocional inválido');
@@ -37,6 +40,10 @@ export class PromosService {
     if (promo.expiresAt && new Date() > promo.expiresAt) throw new BadRequestException('Este código promocional ha expirado');
     if (promo.currentUses >= promo.maxUses) throw new BadRequestException('Este código promocional ya no tiene usos disponibles');
     if (promo.minBookingAmount && dto.bookingAmount < promo.minBookingAmount) {
+    if (userId) {
+      const existing = await this.usageRepository.findOne({ where: { promoId: promo.id, userId } });
+      if (existing) throw new BadRequestException('Ya has usado este código promocional anteriormente');
+    }
       throw new BadRequestException(`El monto mínimo para usar este código es $${promo.minBookingAmount.toLocaleString()}`);
     }
 
@@ -58,8 +65,13 @@ export class PromosService {
     };
   }
 
-  async incrementUses(code: string): Promise<void> {
+  async incrementUses(code: string, userId?: string): Promise<void> {
+    const promo = await this.promoRepository.findOne({ where: { code: code.toUpperCase() } });
+    if (!promo) return;
     await this.promoRepository.increment({ code: code.toUpperCase() }, 'currentUses', 1);
+    if (userId) {
+      await this.usageRepository.save({ promoId: promo.id, userId });
+    }
   }
 
   async findAll(): Promise<Promo[]> {

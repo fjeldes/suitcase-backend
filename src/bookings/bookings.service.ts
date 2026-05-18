@@ -175,7 +175,7 @@ export class BookingsService {
 
         // Incrementar uso del código promocional
         if (dto.promoCode) {
-          this.promosService.incrementUses(dto.promoCode).catch(() => {});
+          this.promosService.incrementUses(dto.promoCode, userId).catch(() => {});
         }
 
         // 7. Guardar Transacción con Moneda

@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, UseGuards, Req } from '@nestjs/common';
 import { PromosService } from './promos.service';
 import { ValidatePromoDto } from './dto/validate-promo.dto';
 import { CreatePromoDto } from './dto/create-promo.dto';
@@ -12,8 +12,8 @@ export class PromosController {
 
   @Post('validate')
   @UseGuards(JwtAuthGuard)
-  async validate(@Body() dto: ValidatePromoDto) {
-    return this.promosService.validate(dto);
+  async validate(@Body() dto: ValidatePromoDto, @Req() req: any) {
+    return this.promosService.validate(dto, req.user?.userId);
   }
 
   @Post()
